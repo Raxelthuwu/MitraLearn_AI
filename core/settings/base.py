@@ -1,13 +1,13 @@
-# base.py
 from pathlib import Path
+import os
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
-SECRET_KEY = 'django-insecure-w6g#z1)e6!!_zlhf@_9as0-jut@g^_c+eoou4jk(_wlx(#0z!-'
-ALLOWED_HOSTS = []
+SECRET_KEY = os.environ.get("SECRET_KEY", "unsafe-dev-key")
+ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
 
 INSTALLED_APPS = [
+    'django.contrib.contenttypes',
     'django.contrib.staticfiles',
-    # tus apps van aquí
 ]
 
 MIDDLEWARE = [
@@ -18,6 +18,7 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = 'core.urls'
+WSGI_APPLICATION = 'core.wsgi.application'
 
 TEMPLATES = [
     {
@@ -32,10 +33,10 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = 'core.wsgi.application'
-
 LANGUAGE_CODE = 'es'
 TIME_ZONE = 'America/Bogota'
 USE_I18N = True
 USE_TZ = True
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
+
+CHROMA_PATH = os.environ.get("CHROMA_PATH", "chroma_db")

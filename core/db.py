@@ -3,7 +3,7 @@ from pymongo import MongoClient
 from dotenv import load_dotenv
 
 load_dotenv()
-#conexion con la base de datos
+#connection to the database
 client = MongoClient(os.environ.get("MONGODB_URI"))
 db = client["mingenially_learn"]
 

@@ -16,4 +16,4 @@ DATABASES = {
     }
 }
 
-
+CHROMA_PATH = os.environ.get("CHROMA_PATH", "chroma_db")
