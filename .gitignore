@@ -4,7 +4,7 @@ venv/
 env/
 ENV/
 .env 
-.gitignore 
+.gtignore 
 # Python
 __pycache__/
 *.py[cod]
