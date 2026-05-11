@@ -1,4 +1,4 @@
-from core.vector_db import forum_embeddings
+from core.vectorDB import forum_embeddings
 import datetime
 
 
