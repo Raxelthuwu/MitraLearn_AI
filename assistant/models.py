@@ -1,4 +1,4 @@
-from core.db import conversations, chat_summaries
+from core.db import conversations, chatSummaries
 import datetime
 
 
@@ -6,16 +6,17 @@ class Conversation:
     collection = conversations
 
     @staticmethod
-    def create(chat_id, chat_name, prompt_sent, ai_response, user_rating=None):
+    def create(chatId, chatName, promptSent, aiResponse, userRating=None):
         doc = {
-            "chatId":     chat_id,
-            "chatName":   chat_name,
-            "timestamp":  datetime.datetime.utcnow(),
-            "promptSent": prompt_sent,
-            "aiResponse": ai_response,
+            "chatId": chatId,
+            "chatName": chatName,
+            "timestamp": datetime.datetime.utcnow(),
+            "promptSent": promptSent,
+            "aiResponse": aiResponse,
         }
-        if user_rating is not None:
-            doc["userRating"] = user_rating
+
+        if userRating is not None:
+            doc["userRating"] = int(userRating)
 
         result = conversations.insert_one(doc)
 
@@ -24,78 +25,87 @@ class Conversation:
 
         return str(result.inserted_id)
 
-
     @staticmethod
-    def get_by_chat(chat_id):
+    def get_by_chat(chatId):
         result = list(
-            conversations.find({"chatId": chat_id}).sort("timestamp", 1)
+            conversations.find({"chatId": chatId}).sort("timestamp", 1)
         )
 
-        print("[DEBUG] Conversation.get_by_chat -> chat_id:", chat_id)
+        print("[DEBUG] Conversation.get_by_chat -> chatId:", chatId)
         print("[DEBUG] Result:", result)
 
         return result
 
-
     @staticmethod
-    def update_rating(chat_id, timestamp, rating):
+    def update_rating(chatId, timestamp, userRating):
         result = conversations.update_one(
-            {"chatId": chat_id, "timestamp": timestamp},
-            {"$set": {"userRating": rating}}
+            {
+                "chatId": chatId,
+                "timestamp": timestamp
+            },
+            {
+                "$set": {
+                    "userRating": int(userRating)
+                }
+            }
         )
 
-        print("[DEBUG] Conversation.update_rating -> chat_id:", chat_id)
+        print("[DEBUG] Conversation.update_rating -> chatId:", chatId)
         print("[DEBUG] timestamp:", timestamp)
-        print("[DEBUG] rating:", rating)
-        print("[DEBUG] matched:", result.matched_count, "modified:", result.modified_count)
-
-
-
+        print("[DEBUG] userRating:", userRating)
+        print(
+            "[DEBUG] matched:",
+            result.matched_count,
+            "modified:",
+            result.modified_count
+        )
 
 
 class ChatSummary:
-    collection = chat_summaries
+    collection = chatSummaries
 
     @staticmethod
-    def create(chat_id, chat_name, summary_text):
+    def create(chatId, chatName, summaryText):
         doc = {
-            "chatId":      chat_id,
-            "chatName":    chat_name,
+            "chatId": chatId,
+            "chatName": chatName,
             "lastUpdated": datetime.datetime.utcnow(),
-            "summaryText": summary_text,
+            "summaryText": summaryText,
         }
-        result = chat_summaries.insert_one(doc)
+
+        result = chatSummaries.insert_one(doc)
 
         print("[DEBUG] ChatSummary.create -> Inserted document:", doc)
         print("[DEBUG] Generated ID:", result.inserted_id)
 
         return str(result.inserted_id)
 
-
-
-
-
     @staticmethod
-    def get_by_chat(chat_id):
-        result = chat_summaries.find_one({"chatId": chat_id})
+    def get_by_chat(chatId):
+        result = chatSummaries.find_one({"chatId": chatId})
 
-        print("[DEBUG] ChatSummary.get_by_chat -> chat_id:", chat_id)
+        print("[DEBUG] ChatSummary.get_by_chat -> chatId:", chatId)
         print("[DEBUG] Result:", result)
 
         return result
 
-
-
     @staticmethod
-    def update_chat_summary(chat_id, summary_text):
-        result = chat_summaries.update_one(
-            {"chatId": chat_id},
-            {"$set": {
-                "summaryText": summary_text,
-                "lastUpdated": datetime.datetime.utcnow(),
-            }}
+    def update_chat_summary(chatId, summaryText):
+        result = chatSummaries.update_one(
+            {"chatId": chatId},
+            {
+                "$set": {
+                    "summaryText": summaryText,
+                    "lastUpdated": datetime.datetime.utcnow(),
+                }
+            }
         )
 
-        print("[DEBUG] ChatSummary.update_chat_summary -> chat_id:", chat_id)
-        print("[DEBUG] summary_text:", summary_text)
-        print("[DEBUG] matched:", result.matched_count, "modified:", result.modified_count)
+        print("[DEBUG] ChatSummary.update_chat_summary -> chatId:", chatId)
+        print("[DEBUG] summaryText:", summaryText)
+        print(
+            "[DEBUG] matched:",
+            result.matched_count,
+            "modified:",
+            result.modified_count
+        )

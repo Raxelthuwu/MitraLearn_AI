@@ -1,14 +1,15 @@
 from core.db import (
     users,
-    forum_categories,
-    forum_subcategories,
-    forum_topics,
-    forum_posts,
-    forum_replies,
-    forum_votes,
-    forum_bookmarks,
-    forum_notifications,
+    forumCategories,
+    forumSubcategories,
+    forumTopics,
+    forumPosts,
+    forumReplies,
+    forumVotes,
+    forumBookmarks,
+    forumNotifications,
 )
+
 from bson import ObjectId
 import datetime
 
@@ -18,22 +19,22 @@ class User:
     collection = users
 
     @staticmethod
-    def create(full_name, email, role, career):
+    def create(fullName, email, role, career):
         doc = {
-            "fullName":   full_name,
-            "email":      email,
-            "role":       role,
-            "career":     career,
-            "createdAt":  datetime.datetime.utcnow(),
-            "reputation": 0,
+            "fullName": fullName,
+            "email": email,
+            "role": role,
+            "career": career,
+            "createdAt": datetime.datetime.utcnow(),
+            "reputation": int(0),
         }
+
         result = users.insert_one(doc)
 
         print("[DEBUG] User.create -> Inserted document:", doc)
         print("[DEBUG] Generated ID:", result.inserted_id)
 
         return str(result.inserted_id)
-
 
     @staticmethod
     def get_by_email(email):
@@ -44,29 +45,25 @@ class User:
 
         return result
 
-
     @staticmethod
-    def get_by_id(user_id):
-        result = users.find_one({"_id": ObjectId(user_id)})
+    def get_by_id(userId):
+        result = users.find_one({"_id": ObjectId(userId)})
 
-        print("[DEBUG] User.get_by_id -> user_id:", user_id)
+        print("[DEBUG] User.get_by_id -> userId:", userId)
         print("[DEBUG] Result:", result)
 
         return result
 
-
-
     @staticmethod
-    def add_reputation(user_id, points):
+    def add_reputation(userId, points):
         result = users.update_one(
-            {"_id": ObjectId(user_id)},
-            {"$inc": {"reputation": points}}
+            {"_id": ObjectId(userId)},
+            {"$inc": {"reputation": int(points)}}
         )
 
-        print("[DEBUG] User.add_reputation -> user_id:", user_id)
+        print("[DEBUG] User.add_reputation -> userId:", userId)
         print("[DEBUG] points:", points)
         print("[DEBUG] matched:", result.matched_count, "modified:", result.modified_count)
-
 
     @staticmethod
     def get_all():
@@ -76,29 +73,31 @@ class User:
 
         return result
 
-
     @staticmethod
-    def get_by_name(full_name):
-        result = list(users.find({"fullName": {"$regex": full_name, "$options": "i"}}))
+    def get_by_name(fullName):
+        result = list(
+            users.find({"fullName": {"$regex": fullName, "$options": "i"}})
+        )
 
-        print("[DEBUG] User.get_by_name -> full_name:", full_name)
+        print("[DEBUG] User.get_by_name -> fullName:", fullName)
         print("[DEBUG] Result count:", len(result))
 
         return result
 
 
-
 class ForumCategory:
-    collection = forum_categories
+
+    collection = forumCategories
 
     @staticmethod
     def create(name, description=""):
         doc = {
-            "name":        name,
+            "name": name,
             "description": description,
-            "createdAt":   datetime.datetime.utcnow(),
+            "createdAt": datetime.datetime.utcnow(),
         }
-        result = forum_categories.insert_one(doc)
+
+        result = forumCategories.insert_one(doc)
 
         print("[DEBUG] ForumCategory.create -> Inserted document:", doc)
         print("[DEBUG] Generated ID:", result.inserted_id)
@@ -107,7 +106,7 @@ class ForumCategory:
 
     @staticmethod
     def get_all():
-        result = list(forum_categories.find())
+        result = list(forumCategories.find())
 
         print("[DEBUG] ForumCategory.get_all -> total:", len(result))
 
@@ -115,7 +114,9 @@ class ForumCategory:
 
     @staticmethod
     def get_by_name(name):
-        result = list(forum_categories.find({"name": {"$regex": name, "$options": "i"}}))
+        result = list(
+            forumCategories.find({"name": {"$regex": name, "$options": "i"}})
+        )
 
         print("[DEBUG] ForumCategory.get_by_name -> name:", name)
         print("[DEBUG] Result count:", len(result))
@@ -123,60 +124,58 @@ class ForumCategory:
         return result
 
 
-
-
-
 class ForumSubcategory:
-    collection = forum_subcategories
+
+    collection = forumSubcategories
 
     @staticmethod
-    def create(category_id, name):
+    def create(categoryId, name):
         doc = {
-            "categoryId": ObjectId(category_id),
-            "name":       name,
-            "createdAt":  datetime.datetime.utcnow(),
+            "categoryId": ObjectId(categoryId),
+            "name": name,
+            "createdAt": datetime.datetime.utcnow(),
         }
-        result = forum_subcategories.insert_one(doc)
+
+        result = forumSubcategories.insert_one(doc)
 
         print("[DEBUG] ForumSubcategory.create -> Inserted document:", doc)
         print("[DEBUG] Generated ID:", result.inserted_id)
 
         return str(result.inserted_id)
 
-
-
     @staticmethod
-    def get_by_category(category_id):
-        result = list(forum_subcategories.find({"categoryId": ObjectId(category_id)}))
+    def get_by_category(categoryId):
+        result = list(
+            forumSubcategories.find({"categoryId": ObjectId(categoryId)})
+        )
 
-        print("[DEBUG] ForumSubcategory.get_by_category -> category_id:", category_id)
+        print("[DEBUG] ForumSubcategory.get_by_category -> categoryId:", categoryId)
         print("[DEBUG] Result count:", len(result))
 
         return result
 
-
     @staticmethod
     def get_all():
-        result = list(forum_subcategories.find())
+        result = list(forumSubcategories.find())
 
         print("[DEBUG] ForumSubcategory.get_all -> total:", len(result))
 
         return result
 
 
-
-
 class ForumTopic:
-    collection = forum_topics
+
+    collection = forumTopics
 
     @staticmethod
-    def create(subcategory_id, name):
+    def create(subcategoryId, name):
         doc = {
-            "subcategoryId": ObjectId(subcategory_id),
-            "name":          name,
-            "createdAt":     datetime.datetime.utcnow(),
+            "subcategoryId": ObjectId(subcategoryId),
+            "name": name,
+            "createdAt": datetime.datetime.utcnow(),
         }
-        result = forum_topics.insert_one(doc)
+
+        result = forumTopics.insert_one(doc)
 
         print("[DEBUG] ForumTopic.create -> Inserted document:", doc)
         print("[DEBUG] Generated ID:", result.inserted_id)
@@ -184,131 +183,141 @@ class ForumTopic:
         return str(result.inserted_id)
 
     @staticmethod
-    def get_by_subcategory(subcategory_id):
-        result = list(forum_topics.find({"subcategoryId": ObjectId(subcategory_id)}))
+    def get_by_subcategory(subcategoryId):
+        result = list(
+            forumTopics.find({"subcategoryId": ObjectId(subcategoryId)})
+        )
 
-        print("[DEBUG] ForumTopic.get_by_subcategory -> subcategory_id:", subcategory_id)
+        print("[DEBUG] ForumTopic.get_by_subcategory -> subcategoryId:", subcategoryId)
         print("[DEBUG] Result count:", len(result))
 
         return result
 
     @staticmethod
     def get_all():
-        result = list(forum_posts.find().sort("createdAt", -1))
+        result = list(forumTopics.find().sort("createdAt", -1))
 
         print("[DEBUG] ForumTopic.get_all -> total:", len(result))
 
         return result
 
     @staticmethod
-    def get_by_title(title):
-        result = list(forum_posts.find({"title": {"$regex": title, "$options": "i"}}))
+    def get_by_name(name):
+        result = list(
+            forumTopics.find({"name": {"$regex": name, "$options": "i"}})
+        )
 
-        print("[DEBUG] ForumTopic.get_by_title -> title:", title)
+        print("[DEBUG] ForumTopic.get_by_name -> name:", name)
         print("[DEBUG] Result count:", len(result))
 
         return result
 
 
-
-
-
 class ForumPost:
-    collection = forum_posts
+
+    collection = forumPosts
 
     @staticmethod
-    def create(author_id, title, content, category_id,
-               subcategory_id=None, topic_id=None, tags=None):
+    def create(
+        authorId,
+        title,
+        content,
+        categoryId,
+        subcategoryId=None,
+        topicId=None,
+        tags=None
+    ):
         doc = {
-            "authorId":      ObjectId(author_id),
-            "title":         title,
-            "content":       content,
-            "categoryId":    ObjectId(category_id),
-            "subcategoryId": ObjectId(subcategory_id) if subcategory_id else None,
-            "topicId":       ObjectId(topic_id) if topic_id else None,
-            "tags":          tags or [],
-            "answersCount":  0,
-            "score":         0.0,
-            "status":        "open",
+            "authorId": ObjectId(authorId),
+            "title": title,
+            "content": content,
+            "categoryId": ObjectId(categoryId),
+            "subcategoryId": ObjectId(subcategoryId) if subcategoryId else None,
+            "topicId": ObjectId(topicId) if topicId else None,
+            "tags": tags or [],
+            "answersCount": int(0),
+            "score": float(0.0),
+            "status": "open",
             "duplicatedFrom": None,
-            "aiSuggested":   False,
-            "createdAt":     datetime.datetime.utcnow(),
-            "updatedAt":     datetime.datetime.utcnow(),
+            "aiSuggested": False,
+            "createdAt": datetime.datetime.utcnow(),
+            "updatedAt": datetime.datetime.utcnow(),
         }
-        result = forum_posts.insert_one(doc)
+
+        result = forumPosts.insert_one(doc)
 
         print("[DEBUG] ForumPost.create -> Inserted document:", doc)
         print("[DEBUG] Generated ID:", result.inserted_id)
 
         return str(result.inserted_id)
 
-
     @staticmethod
-    def get_by_id(post_id):
-        result = forum_posts.find_one({"_id": ObjectId(post_id)})
+    def get_by_id(postId):
+        result = forumPosts.find_one({"_id": ObjectId(postId)})
 
-        print("[DEBUG] ForumPost.get_by_id -> post_id:", post_id)
+        print("[DEBUG] ForumPost.get_by_id -> postId:", postId)
         print("[DEBUG] Result:", result)
 
         return result
 
-
-
     @staticmethod
-    def get_by_category(category_id, status="open"):
+    def get_by_category(categoryId, status="open"):
         result = list(
-            forum_posts.find({"categoryId": ObjectId(category_id), "status": status})
-            .sort("createdAt", -1)
+            forumPosts.find({
+                "categoryId": ObjectId(categoryId),
+                "status": status
+            }).sort("createdAt", -1)
         )
 
-        print("[DEBUG] ForumPost.get_by_category -> category_id:", category_id, "status:", status)
+        print("[DEBUG] ForumPost.get_by_category -> categoryId:", categoryId, "status:", status)
         print("[DEBUG] Result count:", len(result))
 
         return result
 
-
-
     @staticmethod
-    def update_status(post_id, status):
-        result = forum_posts.update_one(
-            {"_id": ObjectId(post_id)},
-            {"$set": {"status": status, "updatedAt": datetime.datetime.utcnow()}}
+    def update_status(postId, status):
+        result = forumPosts.update_one(
+            {"_id": ObjectId(postId)},
+            {
+                "$set": {
+                    "status": status,
+                    "updatedAt": datetime.datetime.utcnow()
+                }
+            }
         )
 
-        print("[DEBUG] ForumPost.update_status -> post_id:", post_id, "status:", status)
+        print("[DEBUG] ForumPost.update_status -> postId:", postId, "status:", status)
         print("[DEBUG] matched:", result.matched_count, "modified:", result.modified_count)
 
-
-
-
     @staticmethod
-    def increment_answers(post_id):
-        result = forum_posts.update_one(
-            {"_id": ObjectId(post_id)},
-            {"$inc": {"answersCount": 1}}
+    def increment_answers(postId):
+        result = forumPosts.update_one(
+            {"_id": ObjectId(postId)},
+            {"$inc": {"answersCount": int(1)}}
         )
 
-        print("[DEBUG] ForumPost.increment_answers -> post_id:", post_id)
+        print("[DEBUG] ForumPost.increment_answers -> postId:", postId)
         print("[DEBUG] matched:", result.matched_count, "modified:", result.modified_count)
 
-
     @staticmethod
-    def mark_as_duplicate(post_id, original_post_id):
-        result = forum_posts.update_one(
-            {"_id": ObjectId(post_id)},
-            {"$set": {
-                "duplicatedFrom": ObjectId(original_post_id),
-                "status":         "closed",
-                "updatedAt":      datetime.datetime.utcnow(),
-            }}
+    def mark_as_duplicate(postId, originalPostId):
+        result = forumPosts.update_one(
+            {"_id": ObjectId(postId)},
+            {
+                "$set": {
+                    "duplicatedFrom": ObjectId(originalPostId),
+                    "status": "closed",
+                    "updatedAt": datetime.datetime.utcnow(),
+                }
+            }
         )
 
-        print("[DEBUG] ForumPost.mark_as_duplicate -> post_id:", post_id, "original_post_id:", original_post_id)
+        print("[DEBUG] ForumPost.mark_as_duplicate -> postId:", postId, "originalPostId:", originalPostId)
         print("[DEBUG] matched:", result.matched_count, "modified:", result.modified_count)
 
     @staticmethod
     def get_all():
-        result = list(forum_replies.find().sort("createdAt", -1))
+        result = list(forumPosts.find().sort("createdAt", -1))
 
         print("[DEBUG] ForumPost.get_all -> total:", len(result))
 
@@ -316,7 +325,9 @@ class ForumPost:
 
     @staticmethod
     def get_by_content(text):
-        result = list(forum_replies.find({"content": {"$regex": text, "$options": "i"}}))
+        result = list(
+            forumPosts.find({"content": {"$regex": text, "$options": "i"}})
+        )
 
         print("[DEBUG] ForumPost.get_by_content -> text:", text)
         print("[DEBUG] Result count:", len(result))
@@ -324,62 +335,59 @@ class ForumPost:
         return result
 
 
-
-
-
-
-
 class ForumReply:
-    collection = forum_replies
+
+    collection = forumReplies
 
     @staticmethod
-    def create(post_id, author_id, content, ai_generated=False):
+    def create(postId, authorId, content, aiGenerated=False):
         doc = {
-            "postId":       ObjectId(post_id),
-            "authorId":     ObjectId(author_id),
-            "content":      content,
-            "isAccepted":   False,
-            "score":        0.0,
-            "aiGenerated":  ai_generated,
-            "createdAt":    datetime.datetime.utcnow(),
-            "updatedAt":    datetime.datetime.utcnow(),
+            "postId": ObjectId(postId),
+            "authorId": ObjectId(authorId),
+            "content": content,
+            "isAccepted": False,
+            "score": float(0.0),
+            "aiGenerated": aiGenerated,
+            "createdAt": datetime.datetime.utcnow(),
+            "updatedAt": datetime.datetime.utcnow(),
         }
-        result = forum_replies.insert_one(doc)
-        ForumPost.increment_answers(post_id)
+
+        result = forumReplies.insert_one(doc)
+
+        ForumPost.increment_answers(postId)
 
         print("[DEBUG] ForumReply.create -> Inserted document:", doc)
         print("[DEBUG] Generated ID:", result.inserted_id)
 
         return str(result.inserted_id)
 
-
-
     @staticmethod
-    def get_by_post(post_id):
+    def get_by_post(postId):
         result = list(
-            forum_replies.find({"postId": ObjectId(post_id)}).sort("createdAt", 1)
+            forumReplies.find({"postId": ObjectId(postId)})
+            .sort("createdAt", 1)
         )
 
-        print("[DEBUG] ForumReply.get_by_post -> post_id:", post_id)
+        print("[DEBUG] ForumReply.get_by_post -> postId:", postId)
         print("[DEBUG] Result count:", len(result))
 
         return result
 
-
     @staticmethod
-    def accept(reply_id, post_id):
-        result = forum_replies.update_one(
-            {"_id": ObjectId(reply_id)},
+    def accept(replyId, postId):
+        result = forumReplies.update_one(
+            {"_id": ObjectId(replyId)},
             {"$set": {"isAccepted": True}}
         )
-        ForumPost.update_status(post_id, "resolved")
 
-        print("[DEBUG] ForumReply.accept -> reply_id:", reply_id, "post_id:", post_id)
+        ForumPost.update_status(postId, "resolved")
+
+        print("[DEBUG] ForumReply.accept -> replyId:", replyId, "postId:", postId)
         print("[DEBUG] matched:", result.matched_count, "modified:", result.modified_count)
 
     @staticmethod
     def get_all():
-        result = list(forum_replies.find().sort("createdAt", -1))
+        result = list(forumReplies.find().sort("createdAt", -1))
 
         print("[DEBUG] ForumReply.get_all -> total:", len(result))
 
@@ -387,7 +395,9 @@ class ForumReply:
 
     @staticmethod
     def get_by_content(text):
-        result = list(forum_replies.find({"content": {"$regex": text, "$options": "i"}}))
+        result = list(
+            forumReplies.find({"content": {"$regex": text, "$options": "i"}})
+        )
 
         print("[DEBUG] ForumReply.get_by_content -> text:", text)
         print("[DEBUG] Result count:", len(result))
@@ -395,104 +405,99 @@ class ForumReply:
         return result
 
 
-
-
-
-
-
 class ForumVote:
-    collection = forum_votes
+
+    collection = forumVotes
 
     @staticmethod
-    def create(user_id, target_id, rating):
+    def create(userId, targetId, rating):
         doc = {
-            "userId":    ObjectId(user_id),
-            "targetId":  ObjectId(target_id),
-            "rating":    rating,
+            "userId": ObjectId(userId),
+            "targetId": ObjectId(targetId),
+            "rating": int(rating),
             "createdAt": datetime.datetime.utcnow(),
         }
-        result = forum_votes.insert_one(doc)
+
+        result = forumVotes.insert_one(doc)
 
         print("[DEBUG] ForumVote.create -> Inserted document:", doc)
         print("[DEBUG] Generated ID:", result.inserted_id)
 
         return str(result.inserted_id)
 
-
-
     @staticmethod
-    def get_average(target_id):
+    def get_average(targetId):
         pipeline = [
-            {"$match": {"targetId": ObjectId(target_id)}},
+            {"$match": {"targetId": ObjectId(targetId)}},
             {"$group": {"_id": "$targetId", "avg": {"$avg": "$rating"}}}
         ]
-        result = list(forum_votes.aggregate(pipeline))
+
+        result = list(forumVotes.aggregate(pipeline))
 
         avg = result[0]["avg"] if result else 0.0
 
-        print("[DEBUG] ForumVote.get_average -> target_id:", target_id)
+        print("[DEBUG] ForumVote.get_average -> targetId:", targetId)
         print("[DEBUG] average:", avg)
 
         return avg
 
 
-
-
-
 class ForumBookmark:
-    collection = forum_bookmarks
+
+    collection = forumBookmarks
 
     @staticmethod
-    def create(user_id, post_id):
+    def create(userId, postId):
         doc = {
-            "userId":    ObjectId(user_id),
-            "postId":    ObjectId(post_id),
+            "userId": ObjectId(userId),
+            "postId": ObjectId(postId),
             "createdAt": datetime.datetime.utcnow(),
         }
-        result = forum_bookmarks.insert_one(doc)
+
+        result = forumBookmarks.insert_one(doc)
 
         print("[DEBUG] ForumBookmark.create -> Inserted document:", doc)
         print("[DEBUG] Generated ID:", result.inserted_id)
 
         return str(result.inserted_id)
 
-
     @staticmethod
-    def get_by_user(user_id):
-        result = list(forum_bookmarks.find({"userId": ObjectId(user_id)}))
+    def get_by_user(userId):
+        result = list(
+            forumBookmarks.find({"userId": ObjectId(userId)})
+        )
 
-        print("[DEBUG] ForumBookmark.get_by_user -> user_id:", user_id)
+        print("[DEBUG] ForumBookmark.get_by_user -> userId:", userId)
         print("[DEBUG] Result count:", len(result))
 
         return result
 
-
     @staticmethod
-    def delete(user_id, post_id):
-        result = forum_bookmarks.delete_one({
-            "userId": ObjectId(user_id),
-            "postId": ObjectId(post_id),
+    def delete(userId, postId):
+        result = forumBookmarks.delete_one({
+            "userId": ObjectId(userId),
+            "postId": ObjectId(postId),
         })
 
-        print("[DEBUG] ForumBookmark.delete -> user_id:", user_id, "post_id:", post_id)
+        print("[DEBUG] ForumBookmark.delete -> userId:", userId, "postId:", postId)
         print("[DEBUG] deleted:", result.deleted_count)
 
 
-
-
 class ForumNotification:
-    collection = forum_notifications
+
+    collection = forumNotifications
 
     @staticmethod
-    def create(user_id, type_, reference_id):
+    def create(userId, type, referenceId):
         doc = {
-            "userId":      ObjectId(user_id),
-            "type":        type_,
-            "referenceId": ObjectId(reference_id),
-            "read":        False,
-            "createdAt":   datetime.datetime.utcnow(),
+            "userId": ObjectId(userId),
+            "type": type,
+            "referenceId": ObjectId(referenceId),
+            "read": False,
+            "createdAt": datetime.datetime.utcnow(),
         }
-        result = forum_notifications.insert_one(doc)
+
+        result = forumNotifications.insert_one(doc)
 
         print("[DEBUG] ForumNotification.create -> Inserted document:", doc)
         print("[DEBUG] Generated ID:", result.inserted_id)
@@ -500,23 +505,25 @@ class ForumNotification:
         return str(result.inserted_id)
 
     @staticmethod
-    def get_unread(user_id):
+    def get_unread(userId):
         result = list(
-            forum_notifications.find({"userId": ObjectId(user_id), "read": False})
-            .sort("createdAt", -1)
+            forumNotifications.find({
+                "userId": ObjectId(userId),
+                "read": False
+            }).sort("createdAt", -1)
         )
 
-        print("[DEBUG] ForumNotification.get_unread -> user_id:", user_id)
+        print("[DEBUG] ForumNotification.get_unread -> userId:", userId)
         print("[DEBUG] Result count:", len(result))
 
         return result
 
     @staticmethod
-    def mark_as_read(notification_id):
-        result = forum_notifications.update_one(
-            {"_id": ObjectId(notification_id)},
+    def mark_as_read(notificationId):
+        result = forumNotifications.update_one(
+            {"_id": ObjectId(notificationId)},
             {"$set": {"read": True}}
         )
 
-        print("[DEBUG] ForumNotification.mark_as_read -> notification_id:", notification_id)
+        print("[DEBUG] ForumNotification.mark_as_read -> notificationId:", notificationId)
         print("[DEBUG] matched:", result.matched_count, "modified:", result.modified_count)
