@@ -1,0 +1,34 @@
+#Virtual Environments
+venv/
+env/
+ENV/
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Django
+db.sqlite3
+media/
+staticfiles/
+
+# IDEs
+.vscode/
+.idea/
+
+# local vector database folder
+chroma_db/
+
+# downloaded Hugging Face models and embeddings
+ai_models/
+huggingface_cache/
+models/
+
+# large model files 
+*.bin
+*.onnx
+*.gguf
+*.pth
+

@@ -440,7 +440,27 @@ class ForumVote:
         print("[DEBUG] average:", avg)
 
         return avg
+    
+    @staticmethod
+    def get_user_vote_on_target(userId, targetId):
+        return forumVotes.find_one({
+            "userId": ObjectId(userId),
+            "targetId": ObjectId(targetId)
+        })
 
+    @staticmethod
+    def update_vote(voteId, rating):
+        forumVotes.update_one(
+            {"_id": ObjectId(voteId)},
+            {"$set": {"rating": int(rating)}}
+        )
+
+    @staticmethod
+    def delete_vote(userId, targetId):
+        forumVotes.delete_one({
+            "userId": ObjectId(userId),
+            "targetId": ObjectId(targetId)
+        })
 
 class ForumBookmark:
 
