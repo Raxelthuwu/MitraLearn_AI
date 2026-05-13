@@ -3,21 +3,22 @@ from pymongo import MongoClient
 from dotenv import load_dotenv
 
 load_dotenv()
-#connection to the database
+
+# Database connection
 client = MongoClient(os.environ.get("MONGODB_URI"))
 db = client["mingenially_learn"]
 
-#Colecciones del asistente 
-conversations  = db["conversations"]
-chat_summaries = db["chatSummaries"]
+# Assistant Collections
+conversations = db["conversations"]
+chatSummaries = db["chatSummaries"]
 
-#Colecciones del foro 
-users               = db["users"]
-forum_categories    = db["forumCategories"]
-forum_subcategories = db["forumSubcategories"]
-forum_topics        = db["forumTopics"]
-forum_posts         = db["forumPosts"]
-forum_replies       = db["forumReplies"]
-forum_votes         = db["forumVotes"]
-forum_bookmarks     = db["forumBookmarks"]
-forum_notifications = db["forumNotifications"]
+# Forum Collections
+users = db["users"]
+forumCategories = db["forumCategories"]
+forumSubcategories = db["forumSubcategories"]
+forumTopics = db["forumTopics"]
+forumPosts = db["forumPosts"]
+forumReplies = db["forumReplies"]
+forumVotes = db["forumVotes"]
+forumBookmarks = db["forumBookmarks"]
+forumNotifications = db["forumNotifications"]
