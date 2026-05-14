@@ -1,21 +1,45 @@
-
-#Virtual Environments
+# Virtual Environments
 venv/
 env/
 ENV/
+.env
 
 # Python
 __pycache__/
 *.py[cod]
 *$py.class
-
-# Django
-db.sqlite3
-media/
-staticfiles/
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
 
 # IDEs
 .vscode/
 .idea/
-.env
+
+# Local vector database folder
 chroma_db/
+
+# AI Models and cache
+ai_models/
+huggingface_cache/
+models/
+
+# Large model files 
+*.bin
+*.onnx
+*.gguf
+*.pth
