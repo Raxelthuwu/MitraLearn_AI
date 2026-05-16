@@ -2,7 +2,7 @@ from django.shortcuts import render, redirect
 from django.contrib import messages
 from django.http import HttpRequest, HttpResponse
 
-from forum import (
+from forum.services.forumService import (
     ForumCategoryService,
     ForumSubcategoryService,
     ForumTopicService,
@@ -11,15 +11,18 @@ from forum import (
     ForumVoteService,
     ForumBookmarkService,
     ForumNotificationService,
+)
+from forum.services.semanticService import (
     SemanticIndexService,
     SemanticSearchService,
     DuplicateDetectionService,
     AnswerSuggestionService,
     QueryExpansionService,
 )
+from assistant.services.rag_service import RAGService
 
 
-# Service singletons
+# Service singletons (The "Pipeline" engines)
 categorySvc    = ForumCategoryService()
 subcategorySvc = ForumSubcategoryService()
 topicSvc       = ForumTopicService()
@@ -33,6 +36,7 @@ searchSvc      = SemanticSearchService()
 duplicateSvc   = DuplicateDetectionService()
 suggestionSvc  = AnswerSuggestionService()
 expansionSvc   = QueryExpansionService()
+ragSvc         = RAGService()
 
 
 # Get current user id from session
@@ -291,6 +295,9 @@ def postCreate(request: HttpRequest) -> HttpResponse:
         if not tags:
             tags = expansionSvc.extractKeyTerms(f"{title} {content}")
 
+        # --- PIPELINE: POST PUBLICATION ---
+        
+        # 1. Core Creation
         post = postSvc.createPost(
             authorId      = userId,
             title         = title,
@@ -301,16 +308,31 @@ def postCreate(request: HttpRequest) -> HttpResponse:
             tags          = tags,
         )
 
-        # Index in ChromaDB for future similarity searches
+        # 2. Semantic Indexing (Automatic)
         indexSvc.indexPost(post["id"], title, content, tags)
 
-        # Mark as hard duplicate if it is clearly one
+        # 3. Duplicate Resolution (Automatic)
         if duplicateSvc.isClearDuplicate(title, content, duplicateSvc.HARD_THRESHOLD):
             candidates = duplicateSvc.detectDuplicates(title, content, duplicateSvc.HARD_THRESHOLD)
             if candidates:
                 duplicateSvc.confirmDuplicate(post["id"], candidates[0]["postId"])
 
-        messages.success(request, "Post published.")
+        # 4. AI Early Support (Automatic for Academic Category)
+        # If the category is academic, the RAG system tries to provide context
+        category = categorySvc.getCategoryById(categoryId)
+        if category and "Academic" in category["name"]:
+            rag_response = ragSvc.generate_augmented_response(f"{title} {content}")
+            if rag_response and rag_response["answer"]:
+                # Save AI suggestion as a special reply
+                replySvc.createReply(
+                    postId      = post["id"],
+                    authorId    = "AI_ASSISTANT", # Special identifier
+                    content     = f"[Sugerencia de IA basada en libros]:\n\n{rag_response['answer']}\n\nFuentes: {rag_response['sources']}",
+                    aiGenerated = True
+                )
+                postSvc.flagAsAiSuggested(post["id"])
+
+        messages.success(request, "Post published. AI has indexed your content.")
         return redirect("forum:post_detail", postId=post["id"])
 
     return render(request, "forum/post_create.html", {
@@ -404,24 +426,30 @@ def replyCreate(request: HttpRequest, postId: str) -> HttpResponse:
         userId  = getUserId(request)
 
         if content:
+            # --- PIPELINE: REPLY CREATION ---
+            
+            # 1. Create Reply
             reply = replySvc.createReply(
-                postId  = postId,
+                postId   = postId,
                 authorId = userId,
                 content  = content,
             )
 
-            # Index the new reply for semantic search
+            # 2. Semantic Indexing (Automatic)
             indexSvc.indexReply(reply["id"], postId, content)
 
-            # Notify the post author
+            # 3. Notification Pipeline (Automatic)
             if post["authorId"] != userId:
                 notifSvc.createNotification(
                     userId           = post["authorId"],
                     notificationType = "nueva respuesta",
                     referenceId      = postId,
                 )
+                
+            # 4. Update Answer Ranking (Automatic Re-calculation)
+            suggestionSvc.rankReplies(postId, replySvc.getRepliesByPost(postId))
 
-            messages.success(request, "Reply published.")
+            messages.success(request, "Reply published and indexed.")
 
     return redirect("forum:post_detail", postId=postId)
 
@@ -487,8 +515,15 @@ def replyAccept(request: HttpRequest, replyId: str, postId: str) -> HttpResponse
         return redirect("forum:post_detail", postId=postId)
 
     if request.method == "POST":
+        # --- PIPELINE: ACCEPT SOLUTION ---
+        
+        # 1. Accept Reply
         replySvc.acceptReply(replyId, postId)
+        
+        # 2. Automate Post Status (Set to Resolved)
+        postSvc.updatePostStatus(postId, "resolved")
 
+        # 3. Notification Pipeline (Automatic)
         reply = replySvc.getReplyById(replyId)
         if reply and reply["authorId"] != userId:
             notifSvc.createNotification(
@@ -497,7 +532,7 @@ def replyAccept(request: HttpRequest, replyId: str, postId: str) -> HttpResponse
                 referenceId      = replyId,
             )
 
-        messages.success(request, "Reply accepted as solution.")
+        messages.success(request, "Reply accepted. The post has been marked as RESOLVED.")
 
     return redirect("forum:post_detail", postId=postId)
 
@@ -538,16 +573,23 @@ def vote(request: HttpRequest, targetId: str) -> HttpResponse:
         rating  = int(request.POST.get("rating", 1))
         postId  = request.POST.get("postId", "").strip()
 
-        voteSvc.castVote(userId, targetId, rating)
+        # --- PIPELINE: VOTING & REPUTATION ---
+        
+        # 1. Cast Vote and Calculate Average Score (Automatic)
+        vote_data = voteSvc.castVote(userId, targetId, rating)
+        
+        # 2. Reputation Update (The castVote service already handles this internally)
+        # but we ensure the pipeline is clear.
 
-        # Notify the target author
-        target = postSvc.getPostById(targetId)
-        authorId = target["authorId"] if target else None
+        # 3. Notification Pipeline (Automatic)
+        target_post = postSvc.getPostById(targetId)
+        authorId = target_post["authorId"] if target_post else None
+        
         if not authorId:
-            reply = replySvc.getReplyById(targetId)
-            if reply:
-                authorId = reply["authorId"]
-                postId   = reply["postId"]
+            target_reply = replySvc.getReplyById(targetId)
+            if target_reply:
+                authorId = target_reply["authorId"]
+                postId   = target_reply["postId"]
 
         if authorId and authorId != userId:
             notifSvc.createNotification(
@@ -556,6 +598,8 @@ def vote(request: HttpRequest, targetId: str) -> HttpResponse:
                 referenceId      = targetId,
             )
 
+        messages.success(request, f"Vote registered. New score: {vote_data.get('score', 0)}")
+        
         if postId:
             return redirect("forum:post_detail", postId=postId)
 
