@@ -308,15 +308,19 @@ def postCreate(request: HttpRequest) -> HttpResponse:
             tags          = tags,
         )
 
-        # 2. Semantic Indexing (Automatic)
-        indexSvc.indexPost(post["id"], title, content, tags)
-
-        # 3. Duplicate Resolution (Automatic)
+        # 2. Duplicate Resolution (Automatic)
+        is_hard_duplicate = False
         if duplicateSvc.isClearDuplicate(title, content, duplicateSvc.HARD_THRESHOLD):
             candidates = duplicateSvc.detectDuplicates(title, content, duplicateSvc.HARD_THRESHOLD)
-            if candidates:
-                duplicateSvc.confirmDuplicate(post["id"], candidates[0]["postId"])
+            # Make sure it's not matching itself if it was somehow indexed
+            valid_candidates = [c for c in candidates if c["postId"] != str(post["id"])]
+            if valid_candidates:
+                duplicateSvc.confirmDuplicate(post["id"], valid_candidates[0]["postId"])
+                is_hard_duplicate = True
 
+        # 3. Semantic Indexing (Automatic)
+        if not is_hard_duplicate:
+            indexSvc.indexPost(post["id"], title, content, tags)
         # 4. AI Early Support (Automatic for Academic Category)
         # If the category is academic, the RAG system tries to provide context
         category = categorySvc.getCategoryById(categoryId)
@@ -326,7 +330,7 @@ def postCreate(request: HttpRequest) -> HttpResponse:
                 # Save AI suggestion as a special reply
                 replySvc.createReply(
                     postId      = post["id"],
-                    authorId    = "AI_ASSISTANT", # Special identifier
+                    authorId    = "000000000000000000000000", # Special identifier (24 hex chars)
                     content     = f"[Sugerencia de IA basada en libros]:\n\n{rag_response['answer']}\n\nFuentes: {rag_response['sources']}",
                     aiGenerated = True
                 )
