@@ -1,13 +1,13 @@
 from core.db import (
     users,
-    forumCategories,
-    forumSubcategories,
-    forumTopics,
-    forumPosts,
-    forumReplies,
-    forumVotes,
-    forumBookmarks,
-    forumNotifications,
+    forum_categories as forumCategories,
+    forum_subcategories as forumSubcategories,
+    forum_topics as forumTopics,
+    forum_posts as forumPosts,
+    forum_replies as forumReplies,
+    forum_votes as forumVotes,
+    forum_bookmarks as forumBookmarks,
+    forum_notifications as forumNotifications,
 )
 
 from bson import ObjectId

@@ -1,4 +1,4 @@
-from core.db import conversations, chatSummaries
+from core.db import conversations, chat_summaries as chatSummaries
 import datetime
 
 

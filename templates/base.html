@@ -1,0 +1,66 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}MitraLearn Forum{% endblock %}</title>
+    
+    <!-- Fuentes de Google: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- CSS Global (BaseStyles) -->
+    <link rel="stylesheet" href="{% static 'css/global.css' %}">
+    
+    <!-- Bloque para estilos específicos de cada página -->
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+
+    <!-- Navegación Superior -->
+    <header style="background-color: var(--bg-surface); border-bottom: 1px solid var(--border-color); padding: 1rem 2rem;">
+        <div style="max-width: 1200px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center;">
+            <a href="{% url 'forum:home' %}" style="font-weight: 700; font-size: 1.25rem; color: var(--accent-primary);">
+                <span style="font-size: 1.5rem; margin-right: 0.5rem;">🎓</span>MitraLearn
+            </a>
+            
+            <nav class="flex items-center gap-4">
+                <a href="{% url 'forum:home' %}" class="text-secondary">Inicio</a>
+                <a href="{% url 'forum:category_list' %}" class="text-secondary">Categorías</a>
+                <a href="{% url 'forum:search' %}" class="text-secondary">Buscar</a>
+                <!-- Puedes agregar lógica condicional de login aquí luego -->
+            </nav>
+        </div>
+    </header>
+
+    <!-- Contenedor Principal -->
+    <main style="max-width: 1200px; margin: 2rem auto; padding: 0 2rem; min-height: 80vh;">
+        
+        <!-- Alertas y Mensajes de Django -->
+        {% if messages %}
+            <div class="mb-4">
+                {% for message in messages %}
+                    <div class="card" style="padding: 1rem; border-left: 4px solid {% if message.tags == 'error' %}var(--danger-color){% else %}var(--success-color){% endif %};">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+        
+        <!-- Contenido de la Vista -->
+        {% block content %}
+        {% endblock %}
+        
+    </main>
+
+    <!-- Footer -->
+    <footer style="text-align: center; padding: 2rem; border-top: 1px solid var(--border-color); margin-top: 2rem; color: var(--text-secondary);">
+        <p>&copy; 2026 MitraLearn AI. Todos los derechos reservados.</p>
+    </footer>
+
+    <!-- Bloque para scripts específicos de cada página -->
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

@@ -12,7 +12,7 @@ from forum.services.forumService import (
     ForumBookmarkService,
     ForumNotificationService,
 )
-from forum.services.semanticService import (
+from forum.services.similarityService import (
     SemanticIndexService,
     SemanticSearchService,
     DuplicateDetectionService,

@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+
+{% block title %}Foro Académico - MitraLearn{% endblock %}
+
+{% block content %}
+<div class="flex justify-between items-center mb-4">
+    <h1>Categorías del Foro</h1>
+    <a href="#" class="btn btn-primary">+ Crear Post</a>
+</div>
+
+<p class="text-secondary mb-4">Bienvenido al foro. Explora las categorías y resuelve tus dudas académicas con ayuda de nuestra IA y la comunidad.</p>
+
+<div class="grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem;">
+    {% if categories %}
+        {% for cat in categories %}
+            <div class="card">
+                <h2>{{ cat.name }}</h2>
+                <p class="text-secondary mt-4">{{ cat.description }}</p>
+                <div class="mt-4">
+                    <a href="{% url 'forum:category_list' %}" class="btn btn-secondary" style="width: 100%;">Explorar</a>
+                </div>
+            </div>
+        {% endfor %}
+    {% else %}
+        <div class="card" style="grid-column: 1 / -1; text-align: center;">
+            <p class="text-secondary">Aún no hay categorías disponibles.</p>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
