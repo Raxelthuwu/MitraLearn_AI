@@ -19,39 +19,40 @@ from forum import (
 )
 
 
-# Service singletons
-categorySvc    = ForumCategoryService()
+# Singletons de servicios
+categorySvc   = ForumCategoryService()
 subcategorySvc = ForumSubcategoryService()
-topicSvc       = ForumTopicService()
-postSvc        = ForumPostService()
-replySvc       = ForumReplyService()
-voteSvc        = ForumVoteService()
-bookmarkSvc    = ForumBookmarkService()
-notifSvc       = ForumNotificationService()
-indexSvc       = SemanticIndexService()
-searchSvc      = SemanticSearchService()
-duplicateSvc   = DuplicateDetectionService()
-suggestionSvc  = AnswerSuggestionService()
-expansionSvc   = QueryExpansionService()
+topicSvc      = ForumTopicService()
+postSvc       = ForumPostService()
+replySvc      = ForumReplyService()
+voteSvc       = ForumVoteService()
+bookmarkSvc   = ForumBookmarkService()
+notifSvc      = ForumNotificationService()
+indexSvc      = SemanticIndexService()
+searchSvc     = SemanticSearchService()
+duplicateSvc  = DuplicateDetectionService()
+suggestionSvc = AnswerSuggestionService()
+expansionSvc  = QueryExpansionService()
 
 
-# Get current user id from session
+# Retorna el userId de la sesión activa
 def getUserId(request: HttpRequest) -> str:
     return request.session.get("userId", "")
 
 
-# Check if user is not logged in
+# Verdadero si el usuario no está autenticado
 def loginRequired(request: HttpRequest) -> bool:
     return not getUserId(request)
 
 
+# Home
 
 def forumHome(request: HttpRequest) -> HttpResponse:
-    # Shows all categories and unread notification count for the current user
-    categories = categorySvc.getAllCategories()
-    userId     = getUserId(request)
-
+    # Muestra todas las categorías y el contador de notificaciones no leídas
+    categories  = categorySvc.getAllCategories()
+    userId      = getUserId(request)
     unreadCount = 0
+
     if userId:
         unreadCount = len(notifSvc.getUnreadNotifications(userId))
 
@@ -61,9 +62,10 @@ def forumHome(request: HttpRequest) -> HttpResponse:
     })
 
 
+# Notificaciones
 
 def notificationList(request: HttpRequest) -> HttpResponse:
-    # Lists all notifications for the current user
+    # Lista todas las notificaciones del usuario actual
     if loginRequired(request):
         return redirect("forum:home")
 
@@ -76,7 +78,7 @@ def notificationList(request: HttpRequest) -> HttpResponse:
 
 
 def notificationMarkRead(request: HttpRequest, notificationId: str) -> HttpResponse:
-    # Marks a single notification as read and redirects back to the list
+    # Marca una notificación como leída y redirige a la lista
     if loginRequired(request):
         return redirect("forum:home")
 
@@ -87,7 +89,7 @@ def notificationMarkRead(request: HttpRequest, notificationId: str) -> HttpRespo
 
 
 def notificationMarkAllRead(request: HttpRequest) -> HttpResponse:
-    # Marks every unread notification as read for the current user
+    # Marca todas las notificaciones del usuario como leídas
     if loginRequired(request):
         return redirect("forum:home")
 
@@ -98,9 +100,10 @@ def notificationMarkAllRead(request: HttpRequest) -> HttpResponse:
     return redirect("forum:notification_list")
 
 
+# Categorías
 
 def categoryList(request: HttpRequest) -> HttpResponse:
-    # Lists all categories; admins can create new ones via POST
+    # Lista todas las categorías; permite crear nuevas vía POST
     if request.method == "POST":
         if loginRequired(request):
             return redirect("forum:home")
@@ -110,7 +113,7 @@ def categoryList(request: HttpRequest) -> HttpResponse:
 
         if name:
             categorySvc.createCategory(name, description)
-            messages.success(request, "Category created.")
+            messages.success(request, "Categoría creada.")
 
         return redirect("forum:category_list")
 
@@ -121,14 +124,13 @@ def categoryList(request: HttpRequest) -> HttpResponse:
 
 
 def categoryDetail(request: HttpRequest, categoryId: str) -> HttpResponse:
-    # Shows one category and its subcategories
+    # Muestra una categoría y sus subcategorías; permite crear subcategorías vía POST
     category      = categorySvc.getCategoryById(categoryId)
     subcategories = subcategorySvc.getSubcategoriesByCategory(categoryId)
 
     if not category:
         return redirect("forum:category_list")
 
-    # Create subcategory via POST
     if request.method == "POST":
         if loginRequired(request):
             return redirect("forum:home")
@@ -136,7 +138,7 @@ def categoryDetail(request: HttpRequest, categoryId: str) -> HttpResponse:
         name = request.POST.get("name", "").strip()
         if name:
             subcategorySvc.createSubcategory(categoryId, name)
-            messages.success(request, "Subcategory created.")
+            messages.success(request, "Subcategoría creada.")
 
         return redirect("forum:category_detail", categoryId=categoryId)
 
@@ -146,16 +148,16 @@ def categoryDetail(request: HttpRequest, categoryId: str) -> HttpResponse:
     })
 
 
+# ─── Subcategorías ───────────────────────────────────────────────────────────
 
 def subcategoryDetail(request: HttpRequest, subcategoryId: str) -> HttpResponse:
-    # Shows one subcategory and its topics
+    # Muestra una subcategoría y sus topics; permite crear topics vía POST
     subcategory = subcategorySvc.getSubcategoryById(subcategoryId)
     topics      = topicSvc.getTopicsBySubcategory(subcategoryId)
 
     if not subcategory:
         return redirect("forum:category_list")
 
-    # Create topic via POST
     if request.method == "POST":
         if loginRequired(request):
             return redirect("forum:home")
@@ -163,7 +165,7 @@ def subcategoryDetail(request: HttpRequest, subcategoryId: str) -> HttpResponse:
         name = request.POST.get("name", "").strip()
         if name:
             topicSvc.createTopic(subcategoryId, name)
-            messages.success(request, "Topic created.")
+            messages.success(request, "Topic creado.")
 
         return redirect("forum:subcategory_detail", subcategoryId=subcategoryId)
 
@@ -173,9 +175,10 @@ def subcategoryDetail(request: HttpRequest, subcategoryId: str) -> HttpResponse:
     })
 
 
+# ─── Topics ──────────────────────────────────────────────────────────────────
 
 def topicDetail(request: HttpRequest, topicId: str) -> HttpResponse:
-    # Shows one topic and the posts inside it
+    # Muestra un topic y los posts que contiene
     topic = topicSvc.getTopicById(topicId)
     if not topic:
         return redirect("forum:category_list")
@@ -188,18 +191,28 @@ def topicDetail(request: HttpRequest, topicId: str) -> HttpResponse:
     })
 
 
+# ─── Posts ───────────────────────────────────────────────────────────────────
 
 def postList(request: HttpRequest, categoryId: str) -> HttpResponse:
-    # Lists posts for a category with optional semantic search
-    category  = categorySvc.getCategoryById(categoryId)
+    # Lista posts de una categoría con búsqueda semántica y filtrado por tags
+    # Flujo: si hay tags → searchByTags; si hay query → expandQuery + findSimilarPosts; sino → listado paginado
+    category = categorySvc.getCategoryById(categoryId)
     if not category:
         return redirect("forum:category_list")
 
     query = request.GET.get("q", "").strip()
+    tags  = [t.strip() for t in request.GET.get("tags", "").split(",") if t.strip()]
     page  = int(request.GET.get("page", 1))
 
-    if query:
-        # Expand the query before searching
+    if tags:
+        # Búsqueda por etiquetas semánticas (RF-futuro: searchByTags en flujo)
+        posts = searchSvc.searchByTags(
+            tags      = tags,
+            queryText = query or None,
+            topK      = 20,
+        )
+    elif query:
+        # Expande la query con LLM antes de buscar por similitud semántica
         expandedQuery = expansionSvc.expandQuery(query)
         posts         = searchSvc.findSimilarPosts(
             queryText      = expandedQuery,
@@ -213,12 +226,15 @@ def postList(request: HttpRequest, categoryId: str) -> HttpResponse:
         "category": category,
         "posts":    posts,
         "query":    query,
+        "tags":     tags,
         "page":     page,
     })
 
 
 def postDetail(request: HttpRequest, postId: str) -> HttpResponse:
-    # Shows a post, its ranked replies, and a reply form
+    # Muestra un post con sus replies rankeadas y posts relacionados
+    # Flujo: obtenerPost → obtenerReplies → rankReplies → findSimilarPostById
+    #        → sugerirSimilaresSiNoHayReplies → verificarBookmark → verificarVoto
     post = postSvc.getPostById(postId)
     if not post:
         return redirect("forum:category_list")
@@ -226,9 +242,23 @@ def postDetail(request: HttpRequest, postId: str) -> HttpResponse:
     userId  = getUserId(request)
     replies = replySvc.getRepliesByPost(postId)
 
-    # Re-rank replies by semantic relevance + votes + accepted status
+    # Re-rankea respuestas por relevancia semántica + votos + aceptada (parte del flujo de visualización)
     if replies:
         replies = suggestionSvc.rankReplies(postId, replies)
+
+    # Si no hay respuestas, sugiere replies similares de otros posts como referencia
+    suggestedReplies = []
+    if not replies:
+        suggestedReplies = suggestionSvc.suggestAnswersForPost(postId, topK=3)
+
+    # Recupera posts relacionados semánticamente para el panel lateral
+    relatedPosts = searchSvc.findSimilarPostById(
+        postId         = postId,
+        topK           = 5,
+        scoreThreshold = 0.50,
+    )
+    # Excluye el post actual de los relacionados
+    relatedPosts = [p for p in relatedPosts if p.get("postId") != postId]
 
     isBookmarked = False
     userVote     = None
@@ -237,15 +267,19 @@ def postDetail(request: HttpRequest, postId: str) -> HttpResponse:
         userVote     = voteSvc.getUserVoteOnTarget(userId, postId)
 
     return render(request, "forum/post_detail.html", {
-        "post":        post,
-        "replies":     replies,
-        "isBookmarked": isBookmarked,
-        "userVote":    userVote,
+        "post":             post,
+        "replies":          replies,
+        "suggestedReplies": suggestedReplies,
+        "relatedPosts":     relatedPosts,
+        "isBookmarked":     isBookmarked,
+        "userVote":         userVote,
     })
 
 
 def postCreate(request: HttpRequest) -> HttpResponse:
-    # Handles new post creation with duplicate detection before saving
+    # Crea un nuevo post con detección de duplicados antes de guardar
+    # Flujo: validar → detectarDuplicados (SOFT, una sola vez) → extraerTags → crearPost
+    #        → indexar → marcarDuplicadoHard si aplica
     if loginRequired(request):
         return redirect("forum:home")
 
@@ -262,21 +296,23 @@ def postCreate(request: HttpRequest) -> HttpResponse:
         confirmPost   = request.POST.get("confirmPost", "")
 
         if not title or not content or not categoryId:
-            messages.error(request, "Title, content and category are required.")
+            messages.error(request, "Título, contenido y categoría son obligatorios.")
             return render(request, "forum/post_create.html", {"categories": categories})
 
-        # Detect duplicates before saving unless the user confirmed they want to post anyway
+        # Detección de duplicados SOFT: se hace una sola vez con SOFT_THRESHOLD
+        # Si el usuario ya confirmó, se omite y se verifica HARD en memoria con los mismos candidatos
+        softCandidates = []
         if not confirmPost:
-            duplicates = duplicateSvc.detectDuplicates(
+            softCandidates = duplicateSvc.detectDuplicates(
                 title          = title,
                 content        = content,
                 scoreThreshold = duplicateSvc.SOFT_THRESHOLD,
             )
-            if duplicates:
-                # Show warnings and ask for confirmation
+            if softCandidates:
+                # Muestra advertencia y pide confirmación al usuario antes de publicar
                 return render(request, "forum/post_create.html", {
                     "categories": categories,
-                    "duplicates": duplicates,
+                    "duplicates": softCandidates,
                     "formData": {
                         "title":         title,
                         "content":       content,
@@ -287,7 +323,7 @@ def postCreate(request: HttpRequest) -> HttpResponse:
                     },
                 })
 
-        # Suggest tags automatically if none were provided
+        # Sugerencia automática de tags si el usuario no ingresó ninguno
         if not tags:
             tags = expansionSvc.extractKeyTerms(f"{title} {content}")
 
@@ -301,16 +337,21 @@ def postCreate(request: HttpRequest) -> HttpResponse:
             tags          = tags,
         )
 
-        # Index in ChromaDB for future similarity searches
-        indexSvc.indexPost(post["id"], title, content, tags)
+        # Indexa en ChromaDB; notifica si falla (RF-2)
+        indexed = indexSvc.indexPost(post["id"], title, content, tags)
+        if not indexed:
+            messages.warning(request, "El post se publicó pero no pudo vectorizarse para búsqueda semántica.")
 
-        # Mark as hard duplicate if it is clearly one
-        if duplicateSvc.isClearDuplicate(title, content, duplicateSvc.HARD_THRESHOLD):
-            candidates = duplicateSvc.detectDuplicates(title, content, duplicateSvc.HARD_THRESHOLD)
-            if candidates:
-                duplicateSvc.confirmDuplicate(post["id"], candidates[0]["postId"])
+        # Verifica duplicado HARD filtrando los candidatos SOFT ya obtenidos en memoria
+        # No se hace una segunda llamada a ChromaDB
+        hardCandidates = [
+            c for c in softCandidates
+            if c.get("similarity", 0) >= duplicateSvc.HARD_THRESHOLD
+        ]
+        if hardCandidates:
+            duplicateSvc.confirmDuplicate(post["id"], hardCandidates[0]["postId"])
 
-        messages.success(request, "Post published.")
+        messages.success(request, "Post publicado.")
         return redirect("forum:post_detail", postId=post["id"])
 
     return render(request, "forum/post_create.html", {
@@ -319,7 +360,8 @@ def postCreate(request: HttpRequest) -> HttpResponse:
 
 
 def postEdit(request: HttpRequest, postId: str) -> HttpResponse:
-    # Allows the author to edit title, content, and tags
+    # Permite al autor editar título, contenido y tags del post
+    # Flujo: validar autoría → actualizar en BD → re-indexar en ChromaDB
     if loginRequired(request):
         return redirect("forum:home")
 
@@ -341,9 +383,12 @@ def postEdit(request: HttpRequest, postId: str) -> HttpResponse:
         })
 
         if updated:
-            # Keep the vector store in sync with the edited content
-            indexSvc.updateIndexedPost(postId, title, content, tags)
-            messages.success(request, "Post updated.")
+            # Mantiene el índice vectorial sincronizado con el contenido editado; notifica si falla (RF-2)
+            reIndexed = indexSvc.updateIndexedPost(postId, title, content, tags)
+            if not reIndexed:
+                messages.warning(request, "Post actualizado, pero el índice semántico no pudo sincronizarse.")
+            else:
+                messages.success(request, "Post actualizado.")
 
         return redirect("forum:post_detail", postId=postId)
 
@@ -353,7 +398,8 @@ def postEdit(request: HttpRequest, postId: str) -> HttpResponse:
 
 
 def postDelete(request: HttpRequest, postId: str) -> HttpResponse:
-    # Deletes a post and removes its embedding from ChromaDB
+    # Elimina un post y su embedding de ChromaDB
+    # Flujo: validar autoría → eliminar en BD → eliminar embedding
     if loginRequired(request):
         return redirect("forum:home")
 
@@ -367,7 +413,7 @@ def postDelete(request: HttpRequest, postId: str) -> HttpResponse:
         categoryId = post["categoryId"]
         postSvc.deletePost(postId)
         indexSvc.removeIndexedPost(postId)
-        messages.success(request, "Post deleted.")
+        messages.success(request, "Post eliminado.")
         return redirect("forum:post_list", categoryId=categoryId)
 
     return render(request, "forum/post_confirm_delete.html", {
@@ -376,7 +422,7 @@ def postDelete(request: HttpRequest, postId: str) -> HttpResponse:
 
 
 def postUpdateStatus(request: HttpRequest, postId: str) -> HttpResponse:
-    # Changes post status: open | resolved | closed
+    # Cambia el estado del post: open | resolved | closed
     if loginRequired(request):
         return redirect("forum:home")
 
@@ -384,14 +430,16 @@ def postUpdateStatus(request: HttpRequest, postId: str) -> HttpResponse:
         status = request.POST.get("status", "").strip()
         if status in ("open", "resolved", "closed"):
             postSvc.updatePostStatus(postId, status)
-            messages.success(request, f"Status updated to '{status}'.")
+            messages.success(request, f"Estado actualizado a '{status}'.")
 
     return redirect("forum:post_detail", postId=postId)
 
 
+# ─── Replies ─────────────────────────────────────────────────────────────────
 
 def replyCreate(request: HttpRequest, postId: str) -> HttpResponse:
-    # Adds a reply to a post and indexes it in ChromaDB
+    # Agrega una respuesta al post e indexa en ChromaDB
+    # Flujo: validar → crear reply → indexar embedding → notificar al autor del post
     if loginRequired(request):
         return redirect("forum:home")
 
@@ -405,15 +453,17 @@ def replyCreate(request: HttpRequest, postId: str) -> HttpResponse:
 
         if content:
             reply = replySvc.createReply(
-                postId  = postId,
-                authorId = userId,
-                content  = content,
+                postId      = postId,
+                authorId    = userId,
+                content     = content,
             )
 
-            # Index the new reply for semantic search
-            indexSvc.indexReply(reply["id"], postId, content)
+            # Indexa el reply para búsqueda semántica futura; notifica si falla (RF-2)
+            indexed = indexSvc.indexReply(reply["id"], postId, content)
+            if not indexed:
+                messages.warning(request, "Respuesta publicada, pero no pudo indexarse para búsqueda semántica.")
 
-            # Notify the post author
+            # Notifica al autor del post si es otra persona
             if post["authorId"] != userId:
                 notifSvc.createNotification(
                     userId           = post["authorId"],
@@ -421,13 +471,14 @@ def replyCreate(request: HttpRequest, postId: str) -> HttpResponse:
                     referenceId      = postId,
                 )
 
-            messages.success(request, "Reply published.")
+            messages.success(request, "Respuesta publicada.")
 
     return redirect("forum:post_detail", postId=postId)
 
 
 def replyEdit(request: HttpRequest, replyId: str) -> HttpResponse:
-    # Allows the author to edit a reply's content
+    # Permite al autor editar el contenido de una respuesta
+    # Flujo: validar autoría → actualizar en BD → re-indexar embedding
     if loginRequired(request):
         return redirect("forum:home")
 
@@ -441,10 +492,14 @@ def replyEdit(request: HttpRequest, replyId: str) -> HttpResponse:
         content = request.POST.get("content", "").strip()
         if content:
             replySvc.updateReply(replyId, content)
-            # Keep the vector store in sync
+
+            # Re-indexa el embedding con el contenido actualizado; notifica si falla (RF-2)
             indexSvc.removeIndexedReply(replyId)
-            indexSvc.indexReply(replyId, reply["postId"], content)
-            messages.success(request, "Reply updated.")
+            reIndexed = indexSvc.indexReply(replyId, reply["postId"], content)
+            if not reIndexed:
+                messages.warning(request, "Respuesta actualizada, pero el índice semántico no pudo sincronizarse.")
+            else:
+                messages.success(request, "Respuesta actualizada.")
 
         return redirect("forum:post_detail", postId=reply["postId"])
 
@@ -454,7 +509,8 @@ def replyEdit(request: HttpRequest, replyId: str) -> HttpResponse:
 
 
 def replyDelete(request: HttpRequest, replyId: str) -> HttpResponse:
-    # Deletes a reply and removes its embedding from ChromaDB
+    # Elimina una respuesta y su embedding de ChromaDB
+    # Flujo: validar autoría → eliminar en BD → eliminar embedding → redirigir al post
     if loginRequired(request):
         return redirect("forum:home")
 
@@ -462,27 +518,28 @@ def replyDelete(request: HttpRequest, replyId: str) -> HttpResponse:
     userId = getUserId(request)
 
     if not reply or reply["authorId"] != userId:
-        return redirect("forum:category_list")
+        # Redirección uniforme al post (RF-13: consistencia en redirecciones de error)
+        return redirect("forum:post_detail", postId=reply["postId"] if reply else "")
 
     postId = reply["postId"]
 
     if request.method == "POST":
         replySvc.deleteReply(replyId)
         indexSvc.removeIndexedReply(replyId)
-        messages.success(request, "Reply deleted.")
+        messages.success(request, "Respuesta eliminada.")
 
     return redirect("forum:post_detail", postId=postId)
 
 
 def replyAccept(request: HttpRequest, replyId: str, postId: str) -> HttpResponse:
-    # Marks a reply as the accepted answer and sets the post to resolved
+    # Marca una respuesta como aceptada y establece el post como resuelto
+    # Flujo: validar que sea el autor del post → acceptReply → notificar al autor de la respuesta
     if loginRequired(request):
         return redirect("forum:home")
 
     post   = postSvc.getPostById(postId)
     userId = getUserId(request)
 
-    # Only the post author can accept a reply
     if not post or post["authorId"] != userId:
         return redirect("forum:post_detail", postId=postId)
 
@@ -497,14 +554,14 @@ def replyAccept(request: HttpRequest, replyId: str, postId: str) -> HttpResponse
                 referenceId      = replyId,
             )
 
-        messages.success(request, "Reply accepted as solution.")
+        messages.success(request, "Respuesta aceptada como solución.")
 
     return redirect("forum:post_detail", postId=postId)
 
 
-
 def replyAiSuggest(request: HttpRequest, postId: str) -> HttpResponse:
-    # Runs the RAG pipeline and saves an AI-generated reply to the post
+    # Ejecuta el pipeline RAG y guarda una respuesta generada por IA
+    # Flujo (RF-15): solo se genera si el post no tiene respuestas → embed → retrieve → prompt → LLM → persist → indexar → flagear
     if loginRequired(request):
         return redirect("forum:home")
 
@@ -513,35 +570,42 @@ def replyAiSuggest(request: HttpRequest, postId: str) -> HttpResponse:
         return redirect("forum:category_list")
 
     if request.method == "POST":
+        # Guarda únicamente si no existe ninguna respuesta humana (RF-15)
+        if post.get("answersCount", 0) > 0:
+            messages.info(request, "El post ya tiene respuestas. La sugerencia IA solo aplica cuando no hay ninguna.")
+            return redirect("forum:post_detail", postId=postId)
+
         result = suggestionSvc.generateAiAnswer(
             postId  = postId,
             title   = post["title"],
             content = post["content"],
         )
 
-        # Flag the post as having received an AI suggestion
+        # Marca el post como receptor de sugerencia IA para trazabilidad
         postSvc.flagAsAiSuggested(postId)
 
-        messages.success(request, "AI suggestion generated and added as a reply.")
+        messages.success(request, "Sugerencia IA generada y agregada como respuesta.")
 
     return redirect("forum:post_detail", postId=postId)
 
 
+# ─── Votos ───────────────────────────────────────────────────────────────────
 
 def vote(request: HttpRequest, targetId: str) -> HttpResponse:
-    # Casts or updates a vote on a post or reply
+    # Registra o actualiza un voto sobre un post o reply
+    # Flujo: castVote → resolver autor → notificar → redirigir al post
     if loginRequired(request):
         return redirect("forum:home")
 
     if request.method == "POST":
-        userId  = getUserId(request)
-        rating  = int(request.POST.get("rating", 1))
-        postId  = request.POST.get("postId", "").strip()
+        userId = getUserId(request)
+        rating = int(request.POST.get("rating", 1))
+        postId = request.POST.get("postId", "").strip()
 
         voteSvc.castVote(userId, targetId, rating)
 
-        # Notify the target author
-        target = postSvc.getPostById(targetId)
+        # Resuelve el autor del target para notificarlo
+        target   = postSvc.getPostById(targetId)
         authorId = target["authorId"] if target else None
         if not authorId:
             reply = replySvc.getReplyById(targetId)
@@ -563,7 +627,7 @@ def vote(request: HttpRequest, targetId: str) -> HttpResponse:
 
 
 def voteRemove(request: HttpRequest, targetId: str) -> HttpResponse:
-    # Removes the current user's vote from a post or reply
+    # Elimina el voto del usuario sobre un post o reply
     if loginRequired(request):
         return redirect("forum:home")
 
@@ -578,35 +642,36 @@ def voteRemove(request: HttpRequest, targetId: str) -> HttpResponse:
     return redirect("forum:home")
 
 
+# ─── Bookmarks ───────────────────────────────────────────────────────────────
 
 def bookmarkAdd(request: HttpRequest, postId: str) -> HttpResponse:
-    # Saves a post to the user's bookmark list
+    # Guarda un post en la lista de favoritos del usuario
     if loginRequired(request):
         return redirect("forum:home")
 
     if request.method == "POST":
         userId = getUserId(request)
         bookmarkSvc.addBookmark(userId, postId)
-        messages.success(request, "Post bookmarked.")
+        messages.success(request, "Post guardado en favoritos.")
 
     return redirect("forum:post_detail", postId=postId)
 
 
 def bookmarkRemove(request: HttpRequest, postId: str) -> HttpResponse:
-    # Removes a post from the user's bookmark list
+    # Elimina un post de la lista de favoritos del usuario
     if loginRequired(request):
         return redirect("forum:home")
 
     if request.method == "POST":
         userId = getUserId(request)
         bookmarkSvc.removeBookmark(userId, postId)
-        messages.success(request, "Bookmark removed.")
+        messages.success(request, "Favorito eliminado.")
 
     return redirect("forum:post_detail", postId=postId)
 
 
 def bookmarkList(request: HttpRequest) -> HttpResponse:
-    # Shows all bookmarked posts for the current user
+    # Muestra todos los posts guardados como favoritos del usuario actual
     if loginRequired(request):
         return redirect("forum:home")
 
@@ -618,9 +683,11 @@ def bookmarkList(request: HttpRequest) -> HttpResponse:
     })
 
 
+# ─── Búsqueda global ─────────────────────────────────────────────────────────
 
 def semanticSearch(request: HttpRequest) -> HttpResponse:
-    # Global semantic search across all posts using query expansion
+    # Búsqueda semántica global sobre todos los posts usando expansión de query
+    # Flujo: expandQuery → findSimilarPosts con umbral 0.40
     query   = request.GET.get("q", "").strip()
     results = []
 
@@ -638,14 +705,15 @@ def semanticSearch(request: HttpRequest) -> HttpResponse:
     })
 
 
+# Administración del índice 
 
 def rebuildIndex(request: HttpRequest) -> HttpResponse:
-    # Drops and fully rebuilds the ChromaDB index from MongoDB
+    # Elimina y reconstruye completamente el índice ChromaDB desde MongoDB
     if loginRequired(request):
         return redirect("forum:home")
 
     if request.method == "POST":
         count = indexSvc.rebuildIndex()
-        messages.success(request, f"Index rebuilt. {count} documents indexed.")
+        messages.success(request, f"Índice reconstruido. {count} documentos indexados.")
 
     return redirect("forum:home")
