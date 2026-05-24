@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Delete Post — MitraLearn{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width: 520px; margin: 0 auto; text-align: center; padding: 2.5rem;">
+    <p style="font-size: 2rem; margin-bottom: 0.75rem;">🗑</p>
+    <h2 style="margin-bottom: 0.5rem;">Delete Post</h2>
+    <p class="text-secondary" style="margin-bottom: 0.25rem;">Are you sure you want to delete:</p>
+    <p style="font-weight: 600; margin-bottom: 1.5rem;">{{ post.title }}</p>
+    <p class="text-secondary" style="font-size: 0.85rem; margin-bottom: 1.5rem;">
+        This will also remove its semantic index from ChromaDB.
+    </p>
+    <div class="flex gap-2" style="justify-content: center;">
+        <form method="post">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-primary" style="background: var(--danger-color);">Yes, Delete</button>
+        </form>
+        <a href="{% url 'forum:post_detail' post.id %}" class="btn btn-secondary">Cancel</a>
+    </div>
+</div>
+{% endblock %}

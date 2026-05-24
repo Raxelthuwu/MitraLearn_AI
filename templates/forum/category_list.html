@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Categories — MitraLearn{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-4">
+    <h1 style="font-size: 1.75rem;">Categories</h1>
+</div>
+
+<!-- Create category form -->
+<div class="card">
+    <h3 style="margin-bottom: 1rem; font-size: 1rem;">Create Category</h3>
+    <form method="post" class="flex gap-2" style="flex-wrap: wrap;">
+        {% csrf_token %}
+        <input type="text" name="name" placeholder="Category name" class="input-field" style="flex: 1; min-width: 180px;" required>
+        <input type="text" name="description" placeholder="Description (optional)" class="input-field" style="flex: 2; min-width: 220px;">
+        <button type="submit" class="btn btn-primary">Create</button>
+    </form>
+</div>
+
+<!-- Category list -->
+{% if categories %}
+    {% for category in categories %}
+    <div class="card" style="padding: 1.25rem;">
+        <div class="flex items-center justify-between">
+            <div>
+                <a href="{% url 'forum:category_detail' category.id %}">
+                    <strong>{{ category.name }}</strong>
+                </a>
+                {% if category.description %}
+                    <p class="text-secondary" style="font-size: 0.875rem; margin-top: 0.25rem;">{{ category.description }}</p>
+                {% endif %}
+            </div>
+            <a href="{% url 'forum:category_detail' category.id %}" class="btn btn-secondary" style="font-size: 0.8rem;">View →</a>
+        </div>
+    </div>
+    {% endfor %}
+{% else %}
+    <div class="card" style="text-align: center; padding: 3rem; color: var(--text-secondary);">
+        <p>No categories yet. Create one above.</p>
+    </div>
+{% endif %}
+{% endblock %}

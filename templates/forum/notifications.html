@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Notifications — MitraLearn{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-4">
+    <h1 style="font-size: 1.75rem;">Notifications</h1>
+    <form method="post" action="{% url 'forum:notification_mark_all_read' %}">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-secondary">Mark all as read</button>
+    </form>
+</div>
+
+{% if notifications %}
+    {% for notif in notifications %}
+    <div class="card" style="padding: 1rem; {% if not notif.read %}border-left: 3px solid var(--accent-primary);{% endif %}">
+        <div class="flex items-center justify-between">
+            <div>
+                <p style="font-size: 0.875rem; font-weight: {% if not notif.read %}600{% else %}400{% endif %};">
+                    {{ notif.type|title }}
+                    {% if not notif.read %}<span style="display: inline-block; width: 6px; height: 6px; background: var(--accent-primary); border-radius: 50%; margin-left: 0.4rem; vertical-align: middle;"></span>{% endif %}
+                </p>
+                <p class="text-secondary" style="font-size: 0.8rem; margin-top: 0.2rem;">{{ notif.createdAt|date:"M d, Y · H:i" }}</p>
+            </div>
+            {% if not notif.read %}
+            <form method="post" action="{% url 'forum:notification_mark_read' notif.id %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-secondary" style="font-size: 0.75rem;">Mark read</button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+{% else %}
+    <div class="card" style="text-align: center; padding: 3rem; color: var(--text-secondary);">
+        <p style="font-size: 1.5rem; margin-bottom: 0.5rem;">🔔</p>
+        <p>No notifications.</p>
+    </div>
+{% endif %}
+{% endblock %}

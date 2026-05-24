@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}{{ topic.name }} — MitraLearn{% endblock %}
+
+{% block content %}
+<p class="text-secondary" style="font-size: 0.875rem; margin-bottom: 1rem;">
+    Topic / {{ topic.name }}
+</p>
+
+<div class="flex items-center justify-between mb-4">
+    <h1 style="font-size: 1.75rem;">{{ topic.name }}</h1>
+    <a href="{% url 'forum:post_create' %}" class="btn btn-primary">+ New Post</a>
+</div>
+
+{% if posts %}
+    {% for post in posts %}
+    <div class="card" style="padding: 1.25rem;">
+        <div class="flex items-center justify-between">
+            <div>
+                <a href="{% url 'forum:post_detail' post.id %}">
+                    <strong>{{ post.title }}</strong>
+                </a>
+                <p class="text-secondary" style="font-size: 0.8rem; margin-top: 0.25rem;">
+                    {{ post.answersCount }} answer{{ post.answersCount|pluralize }} ·
+                    <span style="color: {% if post.status == 'resolved' %}var(--success-color){% elif post.status == 'closed' %}var(--danger-color){% else %}var(--text-secondary){% endif %};">
+                        {{ post.status }}
+                    </span>
+                </p>
+            </div>
+            <a href="{% url 'forum:post_detail' post.id %}" class="btn btn-secondary" style="font-size: 0.8rem;">Open →</a>
+        </div>
+    </div>
+    {% endfor %}
+{% else %}
+    <div class="card" style="text-align: center; padding: 2rem; color: var(--text-secondary);">
+        <p>No posts in this topic yet.</p>
+    </div>
+{% endif %}
+{% endblock %}

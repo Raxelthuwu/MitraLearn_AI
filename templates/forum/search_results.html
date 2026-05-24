@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Search — MitraLearn{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-4">
+    <h1 style="font-size: 1.75rem;">Search</h1>
+</div>
+
+<div class="card" style="padding: 1rem; margin-bottom: 1.5rem;">
+    <form method="get" class="flex gap-2">
+        <input type="text" name="q" value="{{ query }}" placeholder="Semantic search across all posts..." class="input-field" style="flex: 1;" autofocus>
+        <button type="submit" class="btn btn-primary">Search</button>
+    </form>
+</div>
+
+{% if query %}
+    <p class="text-secondary" style="font-size: 0.875rem; margin-bottom: 1rem;">
+        {% if results %}
+            {{ results|length }} result{{ results|length|pluralize }} for "<strong>{{ query }}</strong>"
+        {% else %}
+            No results for "<strong>{{ query }}</strong>"
+        {% endif %}
+    </p>
+{% endif %}
+
+{% for post in results %}
+<div class="card" style="padding: 1.25rem;">
+    <div class="flex items-center justify-between">
+        <div style="flex: 1; min-width: 0;">
+            <div class="flex items-center gap-2" style="margin-bottom: 0.35rem;">
+                <a href="{% url 'forum:post_detail' post.id %}" style="font-weight: 600;">{{ post.title }}</a>
+                <span style="font-size: 0.7rem; background: #F3F4F6; padding: 0.1rem 0.45rem; border-radius: 999px; border: 1px solid var(--border-color);">
+                    {{ post.status }}
+                </span>
+            </div>
+            <p style="font-size: 0.875rem; color: var(--text-secondary); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;">
+                {{ post.content }}
+            </p>
+            <p class="text-secondary" style="font-size: 0.8rem; margin-top: 0.5rem;">
+                {{ post.answersCount }} answer{{ post.answersCount|pluralize }} · Score {{ post.score|floatformat:1 }} · {{ post.createdAt|date:"M d, Y" }}
+            </p>
+        </div>
+        <a href="{% url 'forum:post_detail' post.id %}" class="btn btn-secondary" style="font-size: 0.8rem; margin-left: 1rem;">Open →</a>
+    </div>
+</div>
+{% empty %}
+    {% if query %}
+    <div class="card" style="text-align: center; padding: 3rem; color: var(--text-secondary);">
+        <p style="font-size: 1.5rem; margin-bottom: 0.5rem;">🔍</p>
+        <p>No semantically similar posts found. Try different terms.</p>
+    </div>
+    {% endif %}
+{% endfor %}
+{% endblock %}

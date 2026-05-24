@@ -4,63 +4,88 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}MitraLearn Forum{% endblock %}</title>
-    
-    <!-- Fuentes de Google: Inter -->
+    <title>{% block title %}MitraLearn{% endblock %}</title>
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    
-    <!-- CSS Global (BaseStyles) -->
+
     <link rel="stylesheet" href="{% static 'css/global.css' %}">
-    
-    <!-- Bloque para estilos específicos de cada página -->
     {% block extra_css %}{% endblock %}
 </head>
 <body>
 
-    <!-- Navegación Superior -->
-    <header style="background-color: var(--bg-surface); border-bottom: 1px solid var(--border-color); padding: 1rem 2rem;">
-        <div style="max-width: 1200px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center;">
-            <a href="{% url 'forum:home' %}" style="font-weight: 700; font-size: 1.25rem; color: var(--accent-primary);">
-                <span style="font-size: 1.5rem; margin-right: 0.5rem;">🎓</span>MitraLearn
+    <header class="site-header">
+        <div class="header-inner">
+
+            <a href="{% url 'forum:home' %}" class="site-logo">
+                <span class="logo-icon">🎓</span>MitraLearn
             </a>
-            
-            <nav class="flex items-center gap-4">
-                <a href="{% url 'forum:home' %}" class="text-secondary">Inicio</a>
-                <a href="{% url 'forum:category_list' %}" class="text-secondary">Categorías</a>
-                <a href="{% url 'forum:search' %}" class="text-secondary">Buscar</a>
-                <!-- Puedes agregar lógica condicional de login aquí luego -->
+
+            <nav class="site-nav">
+                <a href="{% url 'forum:home' %}" class="nav-link">Inicio</a>
+                <a href="{% url 'forum:category_list' %}" class="nav-link">Categorías</a>
+                <a href="{% url 'forum:search' %}" class="nav-link">Buscar</a>
+                <a href="{% url 'forum:post_create' %}" class="nav-link">Nueva pregunta</a>
             </nav>
+
+            <div class="header-actions">
+                {% if request.session.userId %}
+                    {# Usuario logueado #}
+                    <a href="{% url 'forum:notification_list' %}" class="notif-btn" title="Notificaciones">
+                        🔔
+                        {% if unreadCount and unreadCount > 0 %}
+                            <span class="notif-badge">{{ unreadCount }}</span>
+                        {% endif %}
+                    </a>
+
+                    <div class="user-menu">
+                        <span class="user-name">{{ request.session.fullName }}</span>
+                        <div class="user-dropdown">
+                            <a href="{% url 'login:profile' %}" class="dropdown-item">Mi perfil</a>
+                            {% if request.session.role == "admin" %}
+                                <a href="{% url 'login:user_list' %}" class="dropdown-item">Gestionar usuarios</a>
+                            {% endif %}
+                            <div class="dropdown-divider"></div>
+                            <form method="post" action="{% url 'login:logout' %}" style="margin:0">
+                                {% csrf_token %}
+                                <button type="submit" class="dropdown-item dropdown-item--danger">Cerrar sesión</button>
+                            </form>
+                        </div>
+                    </div>
+                {% else %}
+                    {# Usuario anónimo #}
+                    <a href="{% url 'login:login' %}" class="btn btn-secondary btn--sm">Ingresar</a>
+                    <a href="{% url 'login:register' %}" class="btn btn-primary btn--sm">Registrarse</a>
+                {% endif %}
+            </div>
+
         </div>
     </header>
 
-    <!-- Contenedor Principal -->
-    <main style="max-width: 1200px; margin: 2rem auto; padding: 0 2rem; min-height: 80vh;">
-        
-        <!-- Alertas y Mensajes de Django -->
+    <main class="site-main">
+
         {% if messages %}
-            <div class="mb-4">
+            <div class="messages-container">
                 {% for message in messages %}
-                    <div class="card" style="padding: 1rem; border-left: 4px solid {% if message.tags == 'error' %}var(--danger-color){% else %}var(--success-color){% endif %};">
+                    <div class="alert alert--{{ message.tags }}">
+                        <span class="alert-icon">
+                            {% if message.tags == 'error' %}✕{% else %}✓{% endif %}
+                        </span>
                         {{ message }}
                     </div>
                 {% endfor %}
             </div>
         {% endif %}
-        
-        <!-- Contenido de la Vista -->
-        {% block content %}
-        {% endblock %}
-        
+
+        {% block content %}{% endblock %}
+
     </main>
 
-    <!-- Footer -->
-    <footer style="text-align: center; padding: 2rem; border-top: 1px solid var(--border-color); margin-top: 2rem; color: var(--text-secondary);">
-        <p>&copy; 2026 MitraLearn AI. Todos los derechos reservados.</p>
+    <footer class="site-footer">
+        <p>© 2026 MitraLearn AI. Todos los derechos reservados.</p>
     </footer>
 
-    <!-- Bloque para scripts específicos de cada página -->
     {% block extra_js %}{% endblock %}
 </body>
 </html>

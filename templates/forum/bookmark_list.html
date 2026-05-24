@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}My Bookmarks — MitraLearn{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-4">
+    <h1 style="font-size: 1.75rem;">My Bookmarks</h1>
+    <a href="{% url 'forum:home' %}" class="btn btn-secondary">← Back</a>
+</div>
+
+{% if bookmarks %}
+    {% for bm in bookmarks %}
+    <div class="card" style="padding: 1.25rem;">
+        <div class="flex items-center justify-between">
+            <div>
+                <!-- postId is used to link; the bookmark object has postId -->
+                <a href="{% url 'forum:post_detail' bm.postId %}" style="font-weight: 600;">Post {{ bm.postId }}</a>
+                <p class="text-secondary" style="font-size: 0.8rem; margin-top: 0.25rem;">Saved {{ bm.createdAt|date:"M d, Y" }}</p>
+            </div>
+            <div class="flex gap-2">
+                <a href="{% url 'forum:post_detail' bm.postId %}" class="btn btn-secondary" style="font-size: 0.8rem;">Open →</a>
+                <form method="post" action="{% url 'forum:bookmark_remove' bm.postId %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-secondary" style="font-size: 0.8rem; color: var(--danger-color);">Remove</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+{% else %}
+    <div class="card" style="text-align: center; padding: 3rem; color: var(--text-secondary);">
+        <p style="font-size: 1.5rem; margin-bottom: 0.5rem;">🔖</p>
+        <p>No bookmarks yet. Save posts to find them here.</p>
+    </div>
+{% endif %}
+{% endblock %}

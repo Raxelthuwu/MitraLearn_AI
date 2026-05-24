@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}{{ subcategory.name }} — MitraLearn{% endblock %}
+
+{% block content %}
+<p class="text-secondary" style="font-size: 0.875rem; margin-bottom: 1rem;">
+    Subcategory / {{ subcategory.name }}
+</p>
+
+<div class="flex items-center justify-between mb-4">
+    <h1 style="font-size: 1.75rem;">{{ subcategory.name }}</h1>
+</div>
+
+<!-- Create topic -->
+<div class="card">
+    <h3 style="margin-bottom: 1rem; font-size: 1rem;">Add Topic</h3>
+    <form method="post" class="flex gap-2">
+        {% csrf_token %}
+        <input type="text" name="name" placeholder="Topic name" class="input-field" style="flex: 1;" required>
+        <button type="submit" class="btn btn-primary">Add</button>
+    </form>
+</div>
+
+<!-- Topics -->
+{% if topics %}
+    {% for topic in topics %}
+    <div class="card" style="padding: 1.25rem;">
+        <div class="flex items-center justify-between">
+            <a href="{% url 'forum:topic_detail' topic.id %}">
+                <strong>{{ topic.name }}</strong>
+            </a>
+            <a href="{% url 'forum:topic_detail' topic.id %}" class="btn btn-secondary" style="font-size: 0.8rem;">View →</a>
+        </div>
+    </div>
+    {% endfor %}
+{% else %}
+    <div class="card" style="text-align: center; padding: 2rem; color: var(--text-secondary);">
+        <p>No topics yet.</p>
+    </div>
+{% endif %}
+{% endblock %}

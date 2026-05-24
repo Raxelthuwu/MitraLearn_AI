@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}{{ category.name }} — MitraLearn{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<p class="text-secondary" style="font-size: 0.875rem; margin-bottom: 1rem;">
+    <a href="{% url 'forum:category_list' %}">Categories</a> / {{ category.name }}
+</p>
+
+<div class="flex items-center justify-between mb-4">
+    <div>
+        <h1 style="font-size: 1.75rem; margin-bottom: 0.25rem;">{{ category.name }}</h1>
+        {% if category.description %}
+            <p class="text-secondary">{{ category.description }}</p>
+        {% endif %}
+    </div>
+    <a href="{% url 'forum:post_list' category.id %}" class="btn btn-secondary">View Posts</a>
+</div>
+
+<!-- Create subcategory -->
+<div class="card">
+    <h3 style="margin-bottom: 1rem; font-size: 1rem;">Add Subcategory</h3>
+    <form method="post" class="flex gap-2">
+        {% csrf_token %}
+        <input type="text" name="name" placeholder="Subcategory name" class="input-field" style="flex: 1;" required>
+        <button type="submit" class="btn btn-primary">Add</button>
+    </form>
+</div>
+
+<!-- Subcategory list -->
+{% if subcategories %}
+    {% for sub in subcategories %}
+    <div class="card" style="padding: 1.25rem;">
+        <div class="flex items-center justify-between">
+            <a href="{% url 'forum:subcategory_detail' sub.id %}">
+                <strong>{{ sub.name }}</strong>
+            </a>
+            <a href="{% url 'forum:subcategory_detail' sub.id %}" class="btn btn-secondary" style="font-size: 0.8rem;">View →</a>
+        </div>
+    </div>
+    {% endfor %}
+{% else %}
+    <div class="card" style="text-align: center; padding: 2rem; color: var(--text-secondary);">
+        <p>No subcategories yet.</p>
+    </div>
+{% endif %}
+{% endblock %}

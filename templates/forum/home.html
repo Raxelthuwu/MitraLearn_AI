@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Forum — MitraLearn{% endblock %}
+
+{% block content %}
+<!-- Header row -->
+<div class="flex items-center justify-between mb-4">
+    <div>
+        <h1 style="font-size: 1.75rem; margin-bottom: 0.25rem;">Forum</h1>
+        <p class="text-secondary">Academic discussions and Q&A</p>
+    </div>
+    <div class="flex items-center gap-2">
+        {% if unreadCount > 0 %}
+            <a href="{% url 'forum:notification_list' %}" class="btn btn-secondary" style="position: relative;">
+                🔔 Notifications
+                <span style="background: #EF4444; color: #fff; font-size: 0.7rem; padding: 0.1rem 0.4rem; border-radius: 999px; margin-left: 0.5rem;">{{ unreadCount }}</span>
+            </a>
+        {% endif %}
+        <a href="{% url 'forum:post_create' %}" class="btn btn-primary">+ New Post</a>
+    </div>
+</div>
+
+<!-- Search bar -->
+<div class="card" style="padding: 1rem;">
+    <form method="get" action="{% url 'forum:search' %}" class="flex gap-2">
+        <input type="text" name="q" placeholder="Search posts semantically..." class="input-field" style="flex: 1;">
+        <button type="submit" class="btn btn-primary">Search</button>
+    </form>
+</div>
+
+<!-- Category list -->
+{% if categories %}
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1rem;">
+        {% for category in categories %}
+        <a href="{% url 'forum:category_detail' category.id %}" style="text-decoration: none;">
+            <div class="card" style="cursor: pointer; transition: box-shadow 0.2s;">
+                <div class="flex items-center justify-between">
+                    <h3 style="font-size: 1rem;">{{ category.name }}</h3>
+                    <span style="font-size: 1.25rem;">→</span>
+                </div>
+                {% if category.description %}
+                    <p class="text-secondary" style="margin-top: 0.5rem; font-size: 0.85rem;">{{ category.description }}</p>
+                {% endif %}
+                <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.75rem;">
+                    Created {{ category.createdAt|date:"M d, Y" }}
+                </p>
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+{% else %}
+    <div class="card" style="text-align: center; padding: 3rem; color: var(--text-secondary);">
+        <p style="font-size: 1.5rem; margin-bottom: 0.5rem;">📂</p>
+        <p>No categories yet.</p>
+    </div>
+{% endif %}
+
+<!-- Quick links -->
+<div class="flex gap-2 mt-4">
+    <a href="{% url 'forum:bookmark_list' %}" class="btn btn-secondary">🔖 My Bookmarks</a>
+    <a href="{% url 'forum:category_list' %}" class="btn btn-secondary">All Categories</a>
+    <a href="{% url 'forum:rebuild_index' %}" class="btn btn-secondary" style="margin-left: auto;">⚙ Rebuild Index</a>
+</div>
+{% endblock %}
