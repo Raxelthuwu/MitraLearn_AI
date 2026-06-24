@@ -1,6 +1,8 @@
 import os
 from django.conf import settings
 from langchain_chroma import Chroma
+from langchain_community.document_loaders import PyPDFLoader
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 class RAGService:
     """
@@ -49,3 +51,32 @@ class RAGService:
         """
         
         return self.llm_service.generate_response(prompt)
+
+    def index_document(self, file_path: str, subject: str, original_name: str):
+        """
+        Carga un PDF, lo segmenta en chunks y los vectoriza en ChromaDB.
+        Cubre RF-1 (carga) y RF-2 (vectorización con confirmación).
+        """
+        loader = PyPDFLoader(file_path)
+        pages = loader.load()
+
+        if not pages:
+            raise ValueError("El PDF no contiene texto extraíble.")
+
+        splitter = RecursiveCharacterTextSplitter(
+            chunk_size=1000,
+            chunk_overlap=150,
+        )
+        chunks = splitter.split_documents(pages)
+
+        # Metadata para poder filtrar/trazar el origen del chunk
+        for chunk in chunks:
+            chunk.metadata["subject"] = subject
+            chunk.metadata["source_file"] = original_name
+
+        self.vector_db.add_documents(chunks)
+
+        return {
+            "chunks_indexed": len(chunks),
+            "pages": len(pages),
+        }

@@ -1,0 +1,346 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Asistente IA — MitraLearn{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/chat.css' %}">
+{% endblock %}
+
+{% block content %}
+<script>document.body.classList.add('chat-page');</script>
+
+{# ── SIDEBAR ── #}
+<aside class="chat-sidebar">
+    <div class="sidebar-header">
+        <span class="sidebar-title">Chats</span>
+        <div style="display:flex; gap:0.4rem;">
+            <button class="btn btn-secondary btn--sm" id="uploadDocBtn" title="Subir material">📎 Subir</button>
+            <button class="btn btn-primary btn--sm" id="newChatBtn">+ Nuevo</button>
+        </div>
+    </div>
+
+    <input type="file" id="docFileInput" accept="application/pdf" style="display:none">
+
+    <div class="sidebar-body">
+        <div class="sidebar-upload" id="uploadPanel" style="display:none;">
+            <label style="font-size:0.78rem; color:var(--text-muted);">Asignatura</label>
+            <input type="text" id="subjectInput" class="chat-input" style="font-size:0.85rem; padding:0.4rem 0.6rem; margin:0.3rem 0;" placeholder="Ej: Cálculo II" maxlength="60">
+            <button class="btn btn-primary btn--sm" id="confirmUploadBtn" style="width:100%;">Subir y vectorizar</button>
+            <div id="uploadStatus" style="font-size:0.78rem; margin-top:0.4rem;"></div>
+        </div>
+
+        {% if summary %}
+        <div class="sidebar-summary">
+            <div class="sidebar-summary-label">📋 Contexto activo</div>
+            {{ summary.summaryText|truncatechars:180 }}
+        </div>
+        {% endif %}
+
+        {% if history %}
+            <a href="#" class="chat-session-item active">
+                Chat actual
+                <span class="session-date">{{ history.0.timestamp|date:"d M Y" }}</span>
+            </a>
+        {% else %}
+            <div class="sidebar-empty">Sin conversaciones aún</div>
+        {% endif %}
+    </div>
+</aside>
+
+{# ── ÁREA PRINCIPAL ── #}
+<div class="chat-area">
+
+    <div class="chat-topbar">
+        <span class="chat-topbar-title">Asistente Académico</span>
+        <span style="font-size:0.8rem; color:var(--text-muted);">🤖 {{ request.session.fullName|default:"Estudiante" }}</span>
+    </div>
+
+    <div class="chat-messages" id="chatMessages">
+
+        {% if not history %}
+        <div class="chat-empty" id="emptyState">
+            <span class="chat-empty-icon">🎓</span>
+            <span class="chat-empty-title">¿En qué te ayudo hoy?</span>
+            <span class="chat-empty-sub">Hazme una pregunta sobre tu material académico y te responderé con base en los documentos indexados.</span>
+        </div>
+        {% endif %}
+
+        {% for msg in history %}
+
+        <div class="msg-row msg-row--user">
+            <div class="msg-avatar msg-avatar--user">{{ request.session.fullName|first|upper|default:"U" }}</div>
+            <div class="msg-body">
+                <div class="msg-bubble msg-bubble--user">{{ msg.promptSent }}</div>
+                <div class="msg-meta">
+                    <span class="msg-timestamp">{{ msg.timestamp|date:"H:i" }}</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="msg-row msg-row--assistant" data-chat-id="{{ msg.chatId }}" data-timestamp="{{ msg.timestamp|date:'c' }}">
+            <div class="msg-avatar msg-avatar--assistant">🤖</div>
+            <div class="msg-body">
+                <div class="msg-bubble msg-bubble--assistant">{{ msg.aiResponse }}</div>
+                <div class="msg-meta">
+                    <span class="msg-timestamp">{{ msg.timestamp|date:"H:i" }}</span>
+                    <button class="msg-copy-btn" onclick="copyMsg(this)">📋 Copiar</button>
+                    <div class="msg-rating">
+                        <select class="rating-select">
+                            {% for i in "12345678910"|make_list %}
+                                <option value="{{ forloop.counter }}" {% if msg.userRating == forloop.counter %}selected{% endif %}>{{ forloop.counter }}</option>
+                            {% endfor %}
+                        </select>
+                        <button class="msg-rating-btn {% if msg.userRating %}rated{% endif %}"
+                                onclick="rateMsg(this)">
+                            {% if msg.userRating %}✓ Calificado{% else %}Calificar{% endif %}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {% endfor %}
+    </div>
+
+    <div class="chat-input-area">
+        <div class="chat-input-row">
+            <div class="chat-input-wrap">
+                <textarea id="chatInput" class="chat-input" placeholder="Escribe tu pregunta académica..." rows="1" maxlength="4000"></textarea>
+            </div>
+            <button class="chat-send-btn" id="sendBtn" title="Enviar">➤</button>
+        </div>
+        <p class="chat-input-hint">Enter para enviar · Shift+Enter para nueva línea</p>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    const CHAT_ID   = "{{ chatId }}";
+    const CHAT_NAME = "Asistente Académico";
+    const USER_INIT = "{{ request.session.fullName|first|upper|default:'U' }}";
+
+    const msgsEl  = document.getElementById("chatMessages");
+    const inputEl = document.getElementById("chatInput");
+    const sendBtn = document.getElementById("sendBtn");
+    const emptyEl = document.getElementById("emptyState");
+
+    // Auto-resize textarea
+    inputEl.addEventListener("input", function () {
+        this.style.height = "auto";
+        this.style.height = Math.min(this.scrollHeight, 160) + "px";
+    });
+
+    // Enter envía, Shift+Enter salta línea
+    inputEl.addEventListener("keydown", function (e) {
+        if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+    });
+
+    sendBtn.addEventListener("click", sendMessage);
+
+    // Nuevo chat
+    document.getElementById("newChatBtn").addEventListener("click", async function () {
+        const res  = await fetch("{% url 'assistant:new' %}", { method: "POST", headers: { "X-CSRFToken": getCsrf() } });
+        const data = await res.json();
+        if (data.chatId) window.location.reload();
+    });
+
+    // Enviar mensaje
+    async function sendMessage() {
+        const prompt = inputEl.value.trim();
+        if (!prompt || sendBtn.disabled) return;
+
+        if (emptyEl) emptyEl.style.display = "none";
+
+        appendUserBubble(prompt);
+        inputEl.value = "";
+        inputEl.style.height = "auto";
+        sendBtn.disabled = true;
+
+        const typingRow = appendTypingIndicator();
+
+        try {
+            const res  = await fetch("{% url 'assistant:send' %}", {
+                method:  "POST",
+                headers: { "Content-Type": "application/json", "X-CSRFToken": getCsrf() },
+                body:    JSON.stringify({ prompt, chatId: CHAT_ID, chatName: CHAT_NAME }),
+            });
+            const data = await res.json();
+            typingRow.remove();
+            appendAssistantBubble(data.error ? "⚠️ " + data.error : data.response, CHAT_ID, new Date().toISOString(), !!data.error);
+        } catch (err) {
+            typingRow.remove();
+            appendAssistantBubble("⚠️ Error de conexión.", null, null, true);
+        } finally {
+            sendBtn.disabled = false;
+            inputEl.focus();
+        }
+    }
+
+    // Burbuja usuario
+    function appendUserBubble(text) {
+        const row = document.createElement("div");
+        row.className = "msg-row msg-row--user";
+        row.innerHTML = `
+            <div class="msg-avatar msg-avatar--user">${USER_INIT}</div>
+            <div class="msg-body">
+                <div class="msg-bubble msg-bubble--user">${escHtml(text)}</div>
+                <div class="msg-meta"><span class="msg-timestamp">${nowTime()}</span></div>
+            </div>`;
+        msgsEl.appendChild(row);
+        scrollBottom();
+    }
+
+    // Burbuja asistente
+    function appendAssistantBubble(text, chatId, isoTs, isError) {
+        const selectId = "rating-" + Date.now();
+        const ratingBlock = (!isError && chatId) ? `
+            <div class="msg-rating">
+                <select class="rating-select" id="${selectId}">
+                    ${[...Array(10)].map((_, i) => `<option value="${i+1}">${i+1}</option>`).join("")}
+                </select>
+                <button class="msg-rating-btn" onclick="rateMsg(this)">Calificar</button>
+            </div>` : "";
+
+        const copyBlock = !isError ? `<button class="msg-copy-btn" onclick="copyMsg(this)">📋 Copiar</button>` : "";
+
+        const row = document.createElement("div");
+        row.className = "msg-row msg-row--assistant";
+        if (chatId) row.dataset.chatId    = chatId;
+        if (isoTs)  row.dataset.timestamp = isoTs;
+        row.innerHTML = `
+            <div class="msg-avatar msg-avatar--assistant">🤖</div>
+            <div class="msg-body">
+                <div class="msg-bubble msg-bubble--assistant">${escHtml(text)}</div>
+                <div class="msg-meta">
+                    <span class="msg-timestamp">${nowTime()}</span>
+                    ${copyBlock}
+                    ${ratingBlock}
+                </div>
+            </div>`;
+        msgsEl.appendChild(row);
+        scrollBottom();
+    }
+
+    // Indicador typing
+    function appendTypingIndicator() {
+        const row = document.createElement("div");
+        row.className = "msg-row msg-row--assistant msg-typing";
+        row.innerHTML = `
+            <div class="msg-avatar msg-avatar--assistant">🤖</div>
+            <div class="msg-body">
+                <div class="msg-bubble msg-bubble--assistant">
+                    <span class="typing-dot"></span>
+                    <span class="typing-dot"></span>
+                    <span class="typing-dot"></span>
+                </div>
+            </div>`;
+        msgsEl.appendChild(row);
+        scrollBottom();
+        return row;
+    }
+
+    // Copiar (funciona para historial y dinámicos)
+    window.copyMsg = function (btn) {
+        const bubble = btn.closest(".msg-body").querySelector(".msg-bubble--assistant");
+        navigator.clipboard.writeText(bubble.innerText).then(() => {
+            btn.textContent = "✓ Copiado";
+            btn.classList.add("copied");
+            setTimeout(() => { btn.textContent = "📋 Copiar"; btn.classList.remove("copied"); }, 2000);
+        });
+    };
+
+    // Calificar (lee chatId y timestamp del data- del row padre)
+    window.rateMsg = async function (btn) {
+        const row       = btn.closest(".msg-row--assistant");
+        const chatId    = row.dataset.chatId;
+        const timestamp = row.dataset.timestamp;
+        const select    = row.querySelector(".rating-select");
+        if (!chatId || !timestamp || !select) return;
+
+        const res  = await fetch("{% url 'assistant:rate' %}", {
+            method:  "POST",
+            headers: { "Content-Type": "application/json", "X-CSRFToken": getCsrf() },
+            body:    JSON.stringify({ chatId, timestamp, userRating: parseInt(select.value) }),
+        });
+        const data = await res.json();
+        if (data.ok) { btn.textContent = "✓ Calificado"; btn.classList.add("rated"); }
+    };
+
+    // ── Subida y vectorización de documentos (RF-1, RF-2) ──
+    const uploadBtn      = document.getElementById("uploadDocBtn");
+    const uploadPanel    = document.getElementById("uploadPanel");
+    const docFileInput   = document.getElementById("docFileInput");
+    const subjectInput   = document.getElementById("subjectInput");
+    const confirmUpload  = document.getElementById("confirmUploadBtn");
+    const uploadStatus   = document.getElementById("uploadStatus");
+    let pendingFile = null;
+
+    uploadBtn.addEventListener("click", function () {
+        uploadPanel.style.display = uploadPanel.style.display === "none" ? "block" : "none";
+        if (uploadPanel.style.display === "block") docFileInput.click();
+    });
+
+    docFileInput.addEventListener("change", function () {
+        pendingFile = this.files[0] || null;
+        uploadStatus.textContent = pendingFile ? `📄 ${pendingFile.name}` : "";
+        uploadStatus.style.color = "var(--text-muted)";
+    });
+
+    confirmUpload.addEventListener("click", async function () {
+        if (!pendingFile) {
+            docFileInput.click();
+            return;
+        }
+        const subject = subjectInput.value.trim() || "general";
+
+        confirmUpload.disabled = true;
+        uploadStatus.style.color = "var(--text-muted)";
+        uploadStatus.textContent = "⏳ Subiendo y vectorizando...";
+
+        const formData = new FormData();
+        formData.append("file", pendingFile);
+        formData.append("subject", subject);
+
+        try {
+            const res  = await fetch("{% url 'assistant:upload' %}", {
+                method:  "POST",
+                headers: { "X-CSRFToken": getCsrf() },
+                body:    formData,
+            });
+            const data = await res.json();
+
+            if (data.ok) {
+                uploadStatus.style.color = "#16a34a";
+                uploadStatus.textContent = "✓ " + data.message;
+                pendingFile = null;
+                docFileInput.value = "";
+            } else {
+                uploadStatus.style.color = "#dc2626";
+                uploadStatus.textContent = "✕ " + (data.error || "Error al procesar el documento.");
+            }
+        } catch (err) {
+            uploadStatus.style.color = "#dc2626";
+            uploadStatus.textContent = "✕ Error de conexión al subir el documento.";
+        } finally {
+            confirmUpload.disabled = false;
+        }
+    });
+
+    function scrollBottom() { msgsEl.scrollTop = msgsEl.scrollHeight; }
+    function nowTime() { return new Date().toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit" }); }
+    function escHtml(s) {
+        return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/\n/g,"<br>");
+    }
+    function getCsrf() {
+        const v = `; ${document.cookie}`.split("; csrftoken=");
+        return v.length === 2 ? v.pop().split(";").shift() : "";
+    }
+
+    scrollBottom();
+})();
+</script>
+{% endblock %}
