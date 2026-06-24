@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}{{ category.name }} — MitraLearn{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-4">
+    <div>
+        <p class="text-secondary" style="font-size: 0.8rem; margin-bottom: 0.25rem;">
+            <a href="{% url 'forum:home' %}">Inicio</a> / <a href="{% url 'forum:category_list' %}">Categorías</a>
+        </p>
+        <h1 style="font-size: 1.75rem;">{{ category.name }}</h1>
+        {% if category.description %}
+        <p class="text-secondary" style="margin-top: 0.35rem;">{{ category.description }}</p>
+        {% endif %}
+    </div>
+    <a href="{% url 'forum:post_list' category.id %}" class="btn btn-primary">Ver posts</a>
+</div>
+
+{% if request.session.userId %}
+<div class="card" style="margin-bottom: 1.5rem;">
+    <h2 style="font-size: 1rem; margin-bottom: 1rem;">Nueva subcategoría</h2>
+    <form method="post" class="flex gap-2">
+        {% csrf_token %}
+        <input type="text" name="name" class="input-field" style="flex: 1;" placeholder="Nombre de la subcategoría" required>
+        <button type="submit" class="btn btn-primary">Crear</button>
+    </form>
+</div>
+{% endif %}
+
+<h2 style="font-size: 1.1rem; margin-bottom: 0.75rem;">Subcategorías</h2>
+{% for sub in subcategories %}
+<div class="card" style="padding: 1rem; margin-bottom: 0.5rem;">
+    <a href="{% url 'forum:subcategory_detail' sub.id %}" style="font-weight: 600;">{{ sub.name }}</a>
+</div>
+{% empty %}
+<div class="card" style="text-align: center; padding: 2rem; color: var(--text-secondary);">
+    <p>No hay subcategorías en esta categoría.</p>
+</div>
+{% endfor %}
+{% endblock %}

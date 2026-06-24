@@ -1,0 +1,348 @@
+{% extends "assistant/base_chat.html" %}
+{% block title %}Chat Académico — MitraLearn{% endblock %}
+
+{% block content %}
+<div class="chat-layout" id="chat-layout">
+
+  <aside class="chat-sidebar" id="chat-sidebar">
+    <div class="chat-sidebar-header">
+      <p class="chat-sidebar-title">Historial de Conversaciones</p>
+    </div>
+    <div class="chat-sessions-list" id="sessions-list"></div>
+    <div class="chat-sidebar-footer">
+      <a href="{% url 'forum:home' %}" class="new-chat-btn" style="text-decoration:none;">← Volver al foro</a>
+      <button class="new-chat-btn" type="button" onclick="window.location.href='/assistant/'">
+        + Nuevo Chat
+      </button>
+    </div>
+  </aside>
+
+  <div class="chat-main">
+    <div class="chat-topbar">
+      <button class="chat-topbar-toggle" id="sidebar-toggle" type="button" title="Ocultar/mostrar historial">☰</button>
+      <div class="chat-topbar-info">
+        <div class="chat-topbar-title" id="chat-title">Chat Académico</div>
+        <div class="chat-topbar-sub" id="chat-sub">{{ subject_name }}{% if topic_name %} • {{ topic_name }}{% endif %}</div>
+      </div>
+      <a href="{% url 'forum:home' %}" class="chat-back-link">← Foro</a>
+    </div>
+
+    <div class="chat-messages" id="chat-messages">
+      <div class="chat-message ai-msg" id="welcome-msg">
+        <div class="msg-content">¡Hola! Soy tu asistente académico. Puedo ayudarte a comprender conceptos de tus materiales de estudio. ¡Pregúntame lo que quieras!</div>
+        <div class="msg-actions">
+          <button class="msg-action-btn" type="button" onclick="copyText(this, document.querySelector('#welcome-msg .msg-content').textContent)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            Copiar
+          </button>
+          <div class="star-rating" aria-hidden="true">
+            <button class="star" type="button" disabled>★</button>
+            <button class="star" type="button" disabled>★</button>
+            <button class="star" type="button" disabled>★</button>
+            <button class="star" type="button" disabled>★</button>
+            <button class="star" type="button" disabled>★</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="chat-input-bar">
+      <textarea id="chat-input" class="chat-input-field" placeholder="Haz una pregunta sobre tus materiales de estudio..." rows="1"></textarea>
+      <button id="send-btn" class="chat-send-btn" type="button" title="Enviar">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="loading-overlay" id="loading-overlay" style="display:none">
+  <div class="loading-spinner"></div>
+  <p style="color:var(--chat-muted);font-size:.9rem;">Procesando con IA...</p>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  const CHAT_ID = '{{ chat.session.chatId }}';
+  const API_BASE = '/assistant/api/sessions/' + CHAT_ID + '/';
+  const messagesEl = document.getElementById('chat-messages');
+  const inputEl = document.getElementById('chat-input');
+  const sendBtn = document.getElementById('send-btn');
+  let isSending = false;
+
+  document.getElementById('sidebar-toggle').addEventListener('click', () => {
+    const sidebar = document.getElementById('chat-sidebar');
+    sidebar.style.display = sidebar.style.display === 'none' ? '' : 'none';
+  });
+
+  function relativeTime(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    const diff = Date.now() - d.getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 2) return 'Ahora';
+    if (mins < 60) return 'Hace ' + mins + ' min';
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return 'Hace ' + hrs + ' hora' + (hrs > 1 ? 's' : '');
+    const days = Math.floor(hrs / 24);
+    if (days === 1) return 'Ayer';
+    return 'Hace ' + days + ' días';
+  }
+
+  function init() {
+    const chatData = {{ chat_json | safe }};
+    const session = chatData.session || {};
+    const messages = chatData.messages || [];
+    const summary = chatData.summary || null;
+
+    if (session.chatName) {
+      document.getElementById('chat-title').textContent = session.chatName;
+    }
+
+    messages.forEach(m => renderMessage(m));
+    if (summary) renderSummary(summary);
+    scrollBottom();
+    loadSessions();
+  }
+
+  async function loadSessions() {
+    try {
+      const r = await fetch('/assistant/api/config/');
+      const d = await r.json();
+      if (!d.ok) return;
+      const list = document.getElementById('sessions-list');
+      list.innerHTML = '';
+      (d.sessions || []).forEach(s => {
+        const div = document.createElement('div');
+        div.className = 'chat-session-item' + (s.chatId === CHAT_ID ? ' active' : '');
+        div.innerHTML = `<div class="chat-session-name">${esc(s.chatName)}</div><div class="chat-session-meta">${relativeTime(s.updatedAt)}</div>`;
+        div.addEventListener('click', () => {
+          window.location.href = '/assistant/chat/' + s.chatId + '/';
+        });
+        list.appendChild(div);
+      });
+    } catch (e) {}
+  }
+
+  function renderMessage(m) {
+    if (m.contextInsufficient) {
+      const wrap = document.createElement('div');
+      wrap.className = 'chat-message insufficient-msg';
+      wrap.innerHTML = `
+        <div class="insufficient-notice">
+          <p>⚠️ No encontré suficiente contexto en los materiales para: <strong>"${esc(m.promptSent)}"</strong></p>
+        </div>
+        <div class="msg-actions">
+          <button class="msg-action-btn" type="button" onclick="externalSearch('${esc(m.promptSent)}')">🌐 Wikipedia</button>
+          <button class="msg-action-btn" type="button" onclick="externalSearch('${esc(m.promptSent)}', 'arxiv')">📚 ArXiv</button>
+        </div>`;
+      messagesEl.appendChild(wrap);
+      return;
+    }
+
+    const userDiv = document.createElement('div');
+    userDiv.className = 'chat-message user-msg';
+    userDiv.innerHTML = `<div class="msg-content">${esc(m.promptSent)}</div>`;
+    messagesEl.appendChild(userDiv);
+
+    const wrap = document.createElement('div');
+    wrap.className = 'chat-message ai-msg';
+    let sourcesHtml = '';
+    if (m.sources && m.sources.length) {
+      const chips = m.sources.map(s => `<span class="msg-source-chip">📄 ${esc(s.source)} p.${s.page}</span>`).join('');
+      sourcesHtml = `<div class="msg-sources" style="margin-top:.75rem;font-size:.8rem;color:var(--chat-muted)">${chips}</div>`;
+    }
+    const msgId = m.messageId || m.timestamp;
+    wrap.innerHTML = `
+      <div class="msg-content">${esc(m.aiResponse)}</div>
+      ${sourcesHtml}
+      <div class="msg-actions">
+        <button class="msg-action-btn" type="button" onclick="copyText(this, \`${esc(m.aiResponse)}\`)">📋 Copiar</button>
+        <div class="star-rating" id="stars-${msgId}">
+          ${[1,2,3,4,5].map(n => `<button class="star" type="button" onclick="rateMessage('${msgId}', ${n*2}, this.parentElement)">★</button>`).join('')}
+        </div>
+      </div>`;
+    messagesEl.appendChild(wrap);
+  }
+
+  function renderSummary(s) {
+    const existing = document.getElementById('chat-summary-banner');
+    if (existing) existing.remove();
+    if (!s || !s.summaryText) return;
+    const div = document.createElement('div');
+    div.id = 'chat-summary-banner';
+    div.className = 'chat-summary';
+    div.innerHTML = `<div class="chat-summary-label">Resumen de la sesión</div><div>${esc(s.summaryText)}</div>`;
+    messagesEl.insertBefore(div, messagesEl.children[1] || null);
+  }
+
+  async function sendMessage() {
+    const text = inputEl.value.trim();
+    if (!text || isSending) return;
+    isSending = true;
+    inputEl.value = '';
+    inputEl.style.height = 'auto';
+    sendBtn.disabled = true;
+
+    const userDiv = document.createElement('div');
+    userDiv.className = 'chat-message user-msg';
+    userDiv.innerHTML = `<div class="msg-content">${esc(text)}</div>`;
+    messagesEl.appendChild(userDiv);
+    scrollBottom();
+
+    const typingDiv = document.createElement('div');
+    typingDiv.className = 'typing-indicator';
+    typingDiv.innerHTML = '<div class="typing-dots"><span></span><span></span><span></span></div><span>El asistente está pensando...</span>';
+    messagesEl.appendChild(typingDiv);
+    scrollBottom();
+
+    try {
+      const r = await fetch(API_BASE + 'messages/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+        body: JSON.stringify({ message: text })
+      });
+      const d = await r.json();
+      typingDiv.remove();
+
+      if (!d.ok) showError(d.error || 'Error al enviar.');
+      else if (d.contextInsufficient) renderInsufficient(text);
+      else renderAiMsg(d);
+
+      if (d.summary) renderSummary(d.summary);
+    } catch (e) {
+      typingDiv.remove();
+      showError('Error de conexión al servidor.');
+    }
+
+    isSending = false;
+    sendBtn.disabled = false;
+    scrollBottom();
+  }
+
+  function renderAiMsg(d) {
+    const wrap = document.createElement('div');
+    wrap.className = 'chat-message ai-msg';
+    let sourcesHtml = '';
+    if (d.sources && d.sources.length) {
+      const chips = d.sources.map(s => `<span>📄 ${esc(s.source)} p.${s.page}</span>`).join(' · ');
+      sourcesHtml = `<div style="margin-top:.75rem;font-size:.8rem;color:var(--chat-muted)">${chips}</div>`;
+    }
+    const msgId = d.messageId;
+    wrap.innerHTML = `
+      <div class="msg-content">${esc(d.answer)}</div>
+      ${sourcesHtml}
+      <div class="msg-actions">
+        <button class="msg-action-btn" type="button" onclick="copyText(this, \`${esc(d.answer)}\`)">📋 Copiar</button>
+        <div class="star-rating" id="stars-${msgId}">
+          ${[1,2,3,4,5].map(n => `<button class="star" type="button" onclick="rateMessage('${msgId}', ${n*2}, this.parentElement)">★</button>`).join('')}
+        </div>
+      </div>`;
+    messagesEl.appendChild(wrap);
+  }
+
+  function renderInsufficient(userText) {
+    const wrap = document.createElement('div');
+    wrap.className = 'chat-message insufficient-msg';
+    wrap.innerHTML = `
+      <div class="insufficient-notice">
+        <p>⚠️ No encontré suficiente contexto en los materiales indexados.</p>
+      </div>
+      <div class="msg-actions">
+        <button class="msg-action-btn" type="button" onclick="externalSearch(\`${esc(userText)}\`)">🌐 Wikipedia</button>
+        <button class="msg-action-btn" type="button" onclick="externalSearch(\`${esc(userText)}\`, 'arxiv')">📚 ArXiv</button>
+      </div>`;
+    messagesEl.appendChild(wrap);
+  }
+
+  window.externalSearch = async function(text, source = 'wikipedia') {
+    if (isSending) return;
+    isSending = true;
+    const typingDiv = document.createElement('div');
+    typingDiv.className = 'typing-indicator';
+    typingDiv.innerHTML = `<div class="typing-dots"><span></span><span></span><span></span></div><span>Buscando en ${source}...</span>`;
+    messagesEl.appendChild(typingDiv);
+    scrollBottom();
+    try {
+      const r = await fetch(API_BASE + 'external-search/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+        body: JSON.stringify({ message: text, source })
+      });
+      const d = await r.json();
+      typingDiv.remove();
+      if (d.ok) renderAiMsg({ ...d, answer: d.answer, sources: [] });
+      else showError(d.error || 'Error en búsqueda externa.');
+    } catch (e) {
+      typingDiv.remove();
+      showError('Error de conexión.');
+    }
+    isSending = false;
+    scrollBottom();
+  };
+
+  window.rateMessage = async function(msgId, rating, container) {
+    try {
+      await fetch(API_BASE + 'rate/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+        body: JSON.stringify({ messageId: msgId, rating })
+      });
+      const stars = container.querySelectorAll('.star');
+      const half = Math.ceil(rating / 2);
+      stars.forEach((s, i) => s.classList.toggle('active', i < half));
+    } catch (e) {}
+  };
+
+  window.copyText = function(btn, text) {
+    navigator.clipboard.writeText(text).then(() => {
+      const orig = btn.innerHTML;
+      btn.textContent = '✓ Copiado';
+      setTimeout(() => { btn.innerHTML = orig; }, 1800);
+    });
+  };
+
+  function showError(msg) {
+    const div = document.createElement('div');
+    div.className = 'alert alert--error';
+    div.style.margin = '.5rem 0';
+    div.textContent = msg;
+    messagesEl.appendChild(div);
+    setTimeout(() => div.remove(), 5000);
+  }
+
+  function esc(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;').replace(/`/g,'&#x60;').replace(/'/g,'&#x27;');
+  }
+
+  function scrollBottom() {
+    setTimeout(() => messagesEl.scrollTop = messagesEl.scrollHeight, 60);
+  }
+
+  function getCsrf() {
+    const c = document.cookie.match(/csrftoken=([^;]+)/);
+    return c ? c[1] : '';
+  }
+
+  inputEl.addEventListener('input', function() {
+    this.style.height = 'auto';
+    this.style.height = Math.min(this.scrollHeight, 140) + 'px';
+  });
+  inputEl.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  });
+  sendBtn.addEventListener('click', sendMessage);
+
+  try { init(); } catch (e) { console.error('Chat init error', e); }
+})();
+</script>
+{% endblock %}

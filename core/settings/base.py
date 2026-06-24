@@ -2,10 +2,8 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 
-# Load environment variables
-load_dotenv()
-
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
+load_dotenv(BASE_DIR / ".env")
 
 SECRET_KEY = os.environ.get("SECRET_KEY", "unsafe-dev-key")
 ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
@@ -38,13 +36,14 @@ WSGI_APPLICATION = 'core.wsgi.application'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'forum.context_processors.forum_notifications',
             ],
         },
     },
@@ -55,6 +54,9 @@ TIME_ZONE = 'America/Bogota'
 USE_I18N = True
 USE_TZ = True
 STATIC_URL = '/static/'
+STATICFILES_DIRS = [
+    BASE_DIR / 'static',
+]
 
 # Database configuration (MongoDB with Djongo)
 DATABASES = {
@@ -73,5 +75,14 @@ DATABASES = {
 LLM_MODEL = os.environ.get('LLM_MODEL', 'gemma2')
 EMBEDDING_MODEL = os.environ.get('EMBEDDING_MODEL', 'BAAI/bge-m3')
 CHROMA_PATH = os.environ.get("CHROMA_PATH", os.path.join(BASE_DIR, "chroma_db"))
+
+# Chat / assistant
+MEDIA_ROOT = os.path.join(BASE_DIR, "media")
+MEDIA_URL = "/media/"
+CHAT_UPLOAD_DIR = os.path.join(MEDIA_ROOT, "chat_uploads")
+CHAT_CHUNK_SIZE = int(os.environ.get("CHAT_CHUNK_SIZE", "800"))
+CHAT_CHUNK_OVERLAP = int(os.environ.get("CHAT_CHUNK_OVERLAP", "120"))
+CHAT_RAG_MIN_SIMILARITY = float(os.environ.get("CHAT_RAG_MIN_SIMILARITY", "0.55"))
+CHAT_SUMMARY_EVERY_N = int(os.environ.get("CHAT_SUMMARY_EVERY_N", "3"))
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'

@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Guardados — MitraLearn{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-4">
+    <h1 style="font-size: 1.75rem;">Publicaciones guardadas</h1>
+    <a href="{% url 'forum:home' %}" class="btn btn-secondary">← Inicio</a>
+</div>
+
+{% for bookmark in bookmarks %}
+<div class="card" style="padding: 1rem; margin-bottom: 0.5rem;">
+    <div class="flex items-center justify-between">
+        <div>
+            <a href="{% url 'forum:post_detail' bookmark.postId %}" style="font-weight: 600;">Post #{{ bookmark.postId|truncatechars:12 }}</a>
+            <p class="text-secondary" style="font-size: 0.8rem; margin-top: 0.25rem;">Guardado: {{ bookmark.createdAt }}</p>
+        </div>
+        <a href="{% url 'forum:post_detail' bookmark.postId %}" class="btn btn-secondary" style="font-size: 0.8rem;">Abrir</a>
+    </div>
+</div>
+{% empty %}
+<div class="card" style="text-align: center; padding: 2rem; color: var(--text-secondary);">
+    <p>No tienes publicaciones guardadas.</p>
+</div>
+{% endfor %}
+{% endblock %}

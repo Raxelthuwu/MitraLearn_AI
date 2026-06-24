@@ -8,13 +8,22 @@ class HuggingFaceEmbeddingService(IEmbeddingService):
     """
 
     def __init__(self):
-        # Load model name from global Django settings
         self.model_name = settings.EMBEDDING_MODEL
-        self.embeddings = HuggingFaceEmbeddings(model_name=self.model_name)
+        self._embeddings = None
+
+    @property
+    def embeddings(self):
+        if self._embeddings is None:
+            self._embeddings = HuggingFaceEmbeddings(model_name=self.model_name)
+        return self._embeddings
 
     def embed_query(self, text: str):
         """Generates embedding for a single query."""
         return self.embeddings.embed_query(text)
+
+    def embed(self, text: str):
+        """Alias for embed_query — used by forum similarity services."""
+        return self.embed_query(text)
 
     def embed_documents(self, texts: list):
         """Generates embeddings for a list of documents."""

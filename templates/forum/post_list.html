@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}{{ category.name }} — Posts{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-4">
+    <div>
+        <p class="text-secondary" style="font-size: 0.8rem; margin-bottom: 0.25rem;">
+            <a href="{% url 'forum:category_detail' category.id %}">← {{ category.name }}</a>
+        </p>
+        <h1 style="font-size: 1.75rem;">Publicaciones</h1>
+    </div>
+    <a href="{% url 'forum:post_create' %}" class="btn btn-primary">Nueva pregunta</a>
+</div>
+
+<div class="card" style="padding: 1rem; margin-bottom: 1.5rem;">
+    <form method="get" class="flex gap-2">
+        <input type="text" name="q" value="{{ query }}" placeholder="Buscar en esta categoría..." class="input-field" style="flex: 1;">
+        <button type="submit" class="btn btn-primary">Buscar</button>
+    </form>
+</div>
+
+{% if query %}
+<p class="text-secondary" style="font-size: 0.875rem; margin-bottom: 1rem;">
+    Resultados para "<strong>{{ query }}</strong>"
+</p>
+{% endif %}
+
+{% for post in posts %}
+<div class="card" style="padding: 1.25rem; margin-bottom: 0.75rem;">
+    <div class="flex items-center justify-between">
+        <div style="flex: 1; min-width: 0;">
+            <a href="{% url 'forum:post_detail' post.id %}" style="font-weight: 600;">{{ post.title }}</a>
+            <p style="font-size: 0.875rem; color: var(--text-secondary); margin-top: 0.35rem;">{{ post.content|truncatechars:180 }}</p>
+            <p class="text-secondary" style="font-size: 0.8rem; margin-top: 0.5rem;">
+                {{ post.answersCount }} respuesta{{ post.answersCount|pluralize }} · {{ post.status }} · Score {{ post.score|floatformat:1 }}
+                {% if post.similarity %} · Similitud: {{ post.similarity|floatformat:2 }}{% endif %}
+            </p>
+        </div>
+        <a href="{% url 'forum:post_detail' post.id %}" class="btn btn-secondary" style="font-size: 0.8rem; margin-left: 1rem;">Abrir</a>
+    </div>
+</div>
+{% empty %}
+<div class="card" style="text-align: center; padding: 2rem; color: var(--text-secondary);">
+    <p>No hay publicaciones{% if query %} que coincidan con tu búsqueda{% endif %}.</p>
+</div>
+{% endfor %}
+{% endblock %}

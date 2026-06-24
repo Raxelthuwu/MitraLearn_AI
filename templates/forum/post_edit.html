@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Editar post — MitraLearn{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-4">
+    <h1 style="font-size: 1.75rem;">Editar publicación</h1>
+    <a href="{% url 'forum:post_detail' post.id %}" class="btn btn-secondary">Cancelar</a>
+</div>
+
+<form method="post" class="card">
+    {% csrf_token %}
+    <div style="display: grid; gap: 1rem;">
+        <div>
+            <label style="display: block; font-size: 0.875rem; font-weight: 500; margin-bottom: 0.4rem;">Título</label>
+            <input type="text" name="title" value="{{ post.title }}" class="input-field" required>
+        </div>
+        <div>
+            <label style="display: block; font-size: 0.875rem; font-weight: 500; margin-bottom: 0.4rem;">Contenido</label>
+            <textarea name="content" rows="8" class="input-field" style="resize: vertical;" required>{{ post.content }}</textarea>
+        </div>
+        <div>
+            <label style="display: block; font-size: 0.875rem; font-weight: 500; margin-bottom: 0.4rem;">Etiquetas</label>
+            <input type="text" name="tags" value="{{ post.tags|join:', ' }}" class="input-field" placeholder="tag1, tag2, tag3">
+        </div>
+        <button type="submit" class="btn btn-primary" style="width: fit-content;">Guardar cambios</button>
+    </div>
+</form>
+{% endblock %}

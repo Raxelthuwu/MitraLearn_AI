@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Editar usuario — MitraLearn{% endblock %}
+
+{% block content %}
+<div class="section-actions">
+    <div>
+        <h1 class="page-title">Editar usuario</h1>
+        <p class="page-subtitle">{{ user.fullName }}</p>
+    </div>
+    <a href="{% url 'login:user_detail' user.id %}" class="btn btn-secondary">Cancelar</a>
+</div>
+
+<form method="post" class="card card-body" style="max-width: 640px;">
+    {% csrf_token %}
+
+    <div class="form-group">
+        <label class="form-label" for="fullName">Nombre completo</label>
+        <input class="form-control" type="text" id="fullName" name="fullName" value="{{ user.fullName }}" required>
+    </div>
+
+    <div class="form-group">
+        <label class="form-label" for="email">Correo electrónico</label>
+        <input class="form-control" type="email" id="email" name="email" value="{{ user.email }}" required>
+    </div>
+
+    <div class="form-group">
+        <label class="form-label" for="career">Carrera</label>
+        <input class="form-control" type="text" id="career" name="career" value="{{ user.career }}" required>
+    </div>
+
+    <div class="form-group">
+        <label class="form-label" for="phone">Teléfono</label>
+        <input class="form-control" type="tel" id="phone" name="phone" value="{{ user.phone }}">
+    </div>
+
+    <div class="form-group">
+        <label class="form-label" for="role">Rol</label>
+        <select class="form-control" id="role" name="role">
+            <option value="student" {% if user.role == "student" %}selected{% endif %}>Estudiante</option>
+            <option value="teacher" {% if user.role == "teacher" %}selected{% endif %}>Docente</option>
+            <option value="admin" {% if user.role == "admin" %}selected{% endif %}>Administrador</option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label class="form-label" for="password">Nueva contraseña</label>
+        <input class="form-control" type="password" id="password" name="password" placeholder="Dejar vacío para no cambiar" minlength="6">
+    </div>
+
+    <button type="submit" class="btn btn-primary">Guardar cambios</button>
+</form>
+{% endblock %}

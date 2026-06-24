@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Editar respuesta — MitraLearn{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-4">
+    <h1 style="font-size: 1.75rem;">Editar respuesta</h1>
+    <a href="{% url 'forum:post_detail' reply.postId %}" class="btn btn-secondary">Cancelar</a>
+</div>
+
+<form method="post" class="card">
+    {% csrf_token %}
+    <textarea name="content" rows="8" class="input-field" style="resize: vertical;" required>{{ reply.content }}</textarea>
+    <button type="submit" class="btn btn-primary" style="margin-top: 0.75rem;">Guardar cambios</button>
+</form>
+{% endblock %}

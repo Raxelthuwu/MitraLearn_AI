@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Foro — MitraLearn{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-4">
+    <div>
+        <h1 style="font-size: 1.75rem; margin-bottom: 0.35rem;">Foro académico</h1>
+        <p class="text-secondary" style="font-size: 0.9rem;">Explora categorías, publica preguntas y colabora con la comunidad.</p>
+    </div>
+    <a href="{% url 'forum:post_create' %}" class="btn btn-primary">Nueva pregunta</a>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem;">
+    {% for cat in categories %}
+    <a href="{% url 'forum:category_detail' cat.id %}" class="card" style="display: block; padding: 1.25rem; transition: border-color .18s;">
+        <h2 style="font-size: 1.05rem; margin-bottom: 0.5rem;">{{ cat.name }}</h2>
+        {% if cat.description %}
+        <p class="text-secondary" style="font-size: 0.875rem; margin-bottom: 0.75rem;">{{ cat.description|truncatechars:120 }}</p>
+        {% endif %}
+        <span style="font-size: 0.8rem; color: var(--accent);">Ver subcategorías →</span>
+    </a>
+    {% empty %}
+    <div class="card" style="grid-column: 1 / -1; text-align: center; padding: 3rem; color: var(--text-secondary);">
+        <p style="font-size: 1.5rem; margin-bottom: 0.5rem;">📚</p>
+        <p>No hay categorías todavía.</p>
+        <a href="{% url 'forum:category_list' %}" class="btn btn-secondary" style="margin-top: 1rem;">Gestionar categorías</a>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="card" style="margin-top: 1.5rem; padding: 1.25rem;">
+    <h3 style="font-size: 1rem; margin-bottom: 0.75rem;">Accesos rápidos</h3>
+    <div class="flex gap-2" style="flex-wrap: wrap;">
+        <a href="{% url 'forum:search' %}" class="btn btn-secondary">Buscar en el foro</a>
+        <a href="{% url 'forum:category_list' %}" class="btn btn-secondary">Todas las categorías</a>
+        <a href="{% url 'assistant:config' %}" class="btn btn-secondary">Chat de aprendizaje</a>
+        {% if request.session.userId %}
+        <a href="{% url 'forum:bookmark_list' %}" class="btn btn-secondary">Mis guardados</a>
+        <a href="{% url 'forum:notification_list' %}" class="btn btn-secondary">Notificaciones</a>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

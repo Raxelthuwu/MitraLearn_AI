@@ -1,0 +1,202 @@
+{% extends "assistant/base_chat.html" %}
+{% block title %}Asistente Académico — MitraLearn{% endblock %}
+
+{% block content %}
+<a href="{% url 'forum:home' %}" class="chat-back-link chat-back-link--floating">← Volver al foro</a>
+
+<div class="chat-config-wrapper">
+  <div class="chat-config-card">
+
+    <div class="chat-config-header">
+      <div class="chat-config-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c0 1.1 2.7 2 6 2s6-.9 6-2v-5"/>
+        </svg>
+      </div>
+      <h1 class="chat-config-title">Asistente Académico</h1>
+      <p class="chat-config-subtitle">Configura tu sesión de aprendizaje</p>
+    </div>
+
+    <div class="chat-config-body">
+      <div id="cfg-alert"></div>
+
+      <div class="chat-config-row">
+        <div>
+          <label class="form-label" for="sel-subject">Materia</label>
+          <select id="sel-subject" class="form-control">
+            <option value="">Selecciona una materia</option>
+          </select>
+        </div>
+        <div>
+          <label class="form-label" for="sel-topic">Tema</label>
+          <select id="sel-topic" class="form-control" disabled>
+            <option value="">Selecciona un tema</option>
+          </select>
+        </div>
+        <div>
+          <label class="form-label" for="sel-model">Modelo IA</label>
+          <select id="sel-model" class="form-control">
+            <option value="gemma:2b">Gemma 2B (local)</option>
+            <option value="gemma2:2b">Gemma2 2B</option>
+            <option value="llama3.2:3b">Llama 3.2 3B</option>
+          </select>
+        </div>
+      </div>
+
+      <p class="form-label">Documentos (Opcional)</p>
+      <div class="upload-zone" id="upload-zone">
+        <div class="upload-icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+        </div>
+        <p class="upload-title">Arrastra tus archivos PDF aquí</p>
+        <p class="upload-sub">o haz clic para seleccionar</p>
+        <span class="upload-btn">Subir PDF</span>
+        <div class="file-list" id="file-list"></div>
+      </div>
+      <input type="file" id="file-input" accept=".pdf" style="display:none">
+
+      <button id="start-btn" class="start-btn" disabled>Iniciar Chat</button>
+    </div>
+  </div>
+</div>
+
+<div class="loading-overlay" id="loading-overlay" style="display:none">
+  <div class="loading-spinner"></div>
+  <p style="color:var(--chat-muted); font-size:.9rem;">Iniciando sesión de chat...</p>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  const API = '/assistant/api/';
+  let subjects = [], topicsBySubject = {}, selectedFile = null;
+
+  async function loadConfig() {
+    try {
+      const r = await fetch(API + 'config/');
+      const data = await r.json();
+      if (!data.ok) return;
+      subjects = data.subjects || [];
+      topicsBySubject = data.topicsBySubject || {};
+      populateSubjects();
+    } catch (e) { console.error('Config load error', e); }
+  }
+
+  function populateSubjects() {
+    const sel = document.getElementById('sel-subject');
+    subjects.forEach(s => {
+      const opt = document.createElement('option');
+      opt.value = s.id;
+      opt.textContent = s.name;
+      sel.appendChild(opt);
+    });
+    sel.addEventListener('change', onSubjectChange);
+  }
+
+  function onSubjectChange() {
+    const subId = this.value;
+    const topicSel = document.getElementById('sel-topic');
+    topicSel.innerHTML = '<option value="">Selecciona un tema</option>';
+    if (subId && topicsBySubject[subId]) {
+      topicsBySubject[subId].forEach(t => {
+        const opt = document.createElement('option');
+        opt.value = t.id;
+        opt.textContent = t.name;
+        topicSel.appendChild(opt);
+      });
+      topicSel.disabled = false;
+    } else {
+      topicSel.disabled = true;
+    }
+    updateStartBtn();
+  }
+
+  function updateStartBtn() {
+    document.getElementById('start-btn').disabled = !document.getElementById('sel-subject').value;
+  }
+
+  document.getElementById('sel-topic').addEventListener('change', updateStartBtn);
+
+  const zone = document.getElementById('upload-zone');
+  const fileInput = document.getElementById('file-input');
+
+  zone.addEventListener('click', () => fileInput.click());
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault();
+    zone.classList.remove('drag-over');
+    const f = e.dataTransfer.files[0];
+    if (f && f.name.toLowerCase().endsWith('.pdf')) setFile(f);
+  });
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files[0]) setFile(fileInput.files[0]);
+  });
+
+  function setFile(f) {
+    selectedFile = f;
+    const list = document.getElementById('file-list');
+    list.innerHTML = '';
+    const pill = document.createElement('div');
+    pill.className = 'file-pill';
+    pill.innerHTML = `<span>📄</span><span class="file-pill-name">${f.name}</span><span class="file-pill-remove" onclick="event.stopPropagation(); removeFile()">✕</span>`;
+    list.appendChild(pill);
+  }
+
+  window.removeFile = function() {
+    selectedFile = null;
+    document.getElementById('file-list').innerHTML = '';
+    fileInput.value = '';
+  };
+
+  document.getElementById('start-btn').addEventListener('click', async () => {
+    const subId = document.getElementById('sel-subject').value;
+    const topicId = document.getElementById('sel-topic').value;
+    const topicText = document.getElementById('sel-topic').selectedOptions[0]?.textContent || '';
+    const subjectText = document.getElementById('sel-subject').selectedOptions[0]?.textContent || '';
+    const name = topicText && topicText !== 'Selecciona un tema'
+      ? topicText
+      : (subjectText || 'Sesión académica');
+
+    if (!subId) return;
+
+    document.getElementById('loading-overlay').style.display = 'flex';
+    document.getElementById('start-btn').disabled = true;
+
+    const formData = new FormData();
+    formData.append('chatName', name);
+    formData.append('subcategoryId', subId);
+    if (topicId) formData.append('topicId', topicId);
+    if (selectedFile) formData.append('pdf', selectedFile);
+
+    try {
+      const r = await fetch(API + 'sessions/', { method: 'POST', body: formData });
+      const data = await r.json();
+      if (data.ok && data.session && data.session.chatId) {
+        window.location.href = '/assistant/chat/' + data.session.chatId + '/';
+      } else {
+        showAlert(data.error || 'Error creando la sesión.', 'error');
+        document.getElementById('loading-overlay').style.display = 'none';
+        document.getElementById('start-btn').disabled = false;
+      }
+    } catch (e) {
+      showAlert('Error de conexión.', 'error');
+      document.getElementById('loading-overlay').style.display = 'none';
+      document.getElementById('start-btn').disabled = false;
+    }
+  });
+
+  function showAlert(msg, type) {
+    const el = document.getElementById('cfg-alert');
+    const cls = type === 'error' ? 'alert--error' : 'alert--success';
+    el.innerHTML = `<div class="alert ${cls}" style="margin-bottom:1rem">${msg}</div>`;
+    setTimeout(() => el.innerHTML = '', 4000);
+  }
+
+  loadConfig();
+})();
+</script>
+{% endblock %}

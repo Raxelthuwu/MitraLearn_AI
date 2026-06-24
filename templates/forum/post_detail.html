@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+{% block title %}{{ post.title }} — MitraLearn{% endblock %}
+
+{% block content %}
+<!-- Post card -->
+<div class="card">
+    <!-- Status badge + actions row -->
+    <div class="flex items-center justify-between" style="margin-bottom: 1rem;">
+        <div class="flex items-center gap-2">
+            <span style="font-size: 0.75rem; padding: 0.2rem 0.65rem; border-radius: 999px; font-weight: 500;
+                background: {% if post.status == 'resolved' %}#D1FAE5{% elif post.status == 'closed' %}#FEE2E2{% else %}#F3F4F6{% endif %};
+                color: {% if post.status == 'resolved' %}var(--success-color){% elif post.status == 'closed' %}var(--danger-color){% else %}var(--text-secondary){% endif %};">
+                {{ post.status|upper }}
+            </span>
+            {% if post.aiSuggested %}
+                <span style="font-size: 0.75rem; padding: 0.2rem 0.65rem; border-radius: 999px; background: #F3F4F6; border: 1px solid var(--border-color);">🤖 AI Suggested</span>
+            {% endif %}
+            {% if post.duplicatedFrom %}
+                <span style="font-size: 0.75rem; padding: 0.2rem 0.65rem; border-radius: 999px; background: #FEF3C7; border: 1px solid #FCD34D;">Duplicate</span>
+            {% endif %}
+        </div>
+
+        <div class="flex items-center gap-2">
+            <!-- Bookmark -->
+            {% if isBookmarked %}
+                <form method="post" action="{% url 'forum:bookmark_remove' post.id %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-secondary" style="font-size: 0.8rem;">🔖 Saved</button>
+                </form>
+            {% else %}
+                <form method="post" action="{% url 'forum:bookmark_add' post.id %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-secondary" style="font-size: 0.8rem;">🔖 Save</button>
+                </form>
+            {% endif %}
+
+            <a href="{% url 'forum:post_edit' post.id %}" class="btn btn-secondary" style="font-size: 0.8rem;">Edit</a>
+            <a href="{% url 'forum:post_delete' post.id %}" class="btn btn-secondary" style="font-size: 0.8rem; color: var(--danger-color);">Delete</a>
+        </div>
+    </div>
+
+    <!-- Title & meta -->
+    <h1 style="font-size: 1.5rem; margin-bottom: 0.5rem;">{{ post.title }}</h1>
+    <p class="text-secondary" style="font-size: 0.8rem; margin-bottom: 1rem;">
+        {{ post.createdAt|date:"M d, Y · H:i" }} · {{ post.answersCount }} answer{{ post.answersCount|pluralize }} · Score {{ post.score|floatformat:1 }}
+    </p>
+
+    {% if post.tags %}
+        <div class="flex gap-2" style="flex-wrap: wrap; margin-bottom: 1rem;">
+            {% for tag in post.tags %}
+                <span style="font-size: 0.75rem; background: #F3F4F6; padding: 0.15rem 0.55rem; border-radius: 999px; border: 1px solid var(--border-color);">{{ tag }}</span>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <!-- Content -->
+    <div style="line-height: 1.75; white-space: pre-wrap; border-top: 1px solid var(--border-color); padding-top: 1rem;">{{ post.content }}</div>
+
+    <!-- Vote row -->
+    <div class="flex items-center gap-2 mt-4" style="border-top: 1px solid var(--border-color); padding-top: 1rem;">
+        <span class="text-secondary" style="font-size: 0.875rem;">Rate this post:</span>
+        <form method="post" action="{% url 'forum:vote' post.id %}" class="flex items-center gap-2">
+            {% csrf_token %}
+            <input type="hidden" name="postId" value="{{ post.id }}">
+            <select name="rating" class="input-field" style="width: auto; padding: 0.35rem 0.65rem;">
+                {% for i in "12345678910"|make_list %}
+                    <option value="{{ forloop.counter }}" {% if userVote.rating == forloop.counter %}selected{% endif %}>{{ forloop.counter }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="btn btn-primary" style="font-size: 0.8rem;">Vote</button>
+        </form>
+        {% if userVote %}
+            <form method="post" action="{% url 'forum:vote_remove' post.id %}">
+                {% csrf_token %}
+                <input type="hidden" name="postId" value="{{ post.id }}">
+                <button type="submit" class="btn btn-secondary" style="font-size: 0.8rem;">Remove Vote</button>
+            </form>
+        {% endif %}
+
+        <!-- Change status -->
+        <form method="post" action="{% url 'forum:post_update_status' post.id %}" class="flex gap-2" style="margin-left: auto;">
+            {% csrf_token %}
+            <select name="status" class="input-field" style="width: auto; padding: 0.35rem 0.65rem; font-size: 0.8rem;">
+                <option value="open" {% if post.status == 'open' %}selected{% endif %}>Open</option>
+                <option value="resolved" {% if post.status == 'resolved' %}selected{% endif %}>Resolved</option>
+                <option value="closed" {% if post.status == 'closed' %}selected{% endif %}>Closed</option>
+            </select>
+            <button type="submit" class="btn btn-secondary" style="font-size: 0.8rem;">Set Status</button>
+        </form>
+    </div>
+</div>
+
+<!-- Replies section -->
+<div class="flex items-center justify-between" style="margin: 1.5rem 0 0.75rem;">
+    <h2 style="font-size: 1.1rem;">{{ replies|length }} Answer{{ replies|length|pluralize }}</h2>
+    <!-- AI suggest button -->
+    <form method="post" action="{% url 'forum:reply_ai_suggest' post.id %}">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-secondary" style="font-size: 0.8rem;">🤖 Get AI Suggestion</button>
+    </form>
+</div>
+
+{% for reply in replies %}
+<div class="card" style="padding: 1.25rem; {% if reply.isAccepted %}border-left: 3px solid var(--success-color);{% elif reply.aiGenerated %}border-left: 3px solid #9CA3AF;{% endif %}">
+    <div class="flex items-center justify-between" style="margin-bottom: 0.75rem;">
+        <div class="flex items-center gap-2">
+            {% if reply.isAccepted %}
+                <span style="font-size: 0.75rem; padding: 0.2rem 0.65rem; border-radius: 999px; background: #D1FAE5; color: var(--success-color); font-weight: 600;">✓ Accepted</span>
+            {% endif %}
+            {% if reply.aiGenerated %}
+                <span style="font-size: 0.75rem; padding: 0.2rem 0.65rem; border-radius: 999px; background: #F3F4F6; border: 1px solid var(--border-color);">🤖 AI</span>
+            {% endif %}
+            <span class="text-secondary" style="font-size: 0.8rem;">Score {{ reply.score|floatformat:1 }} · {{ reply.createdAt|date:"M d, Y · H:i" }}</span>
+        </div>
+
+        <div class="flex gap-2">
+            {% if not reply.isAccepted %}
+                <form method="post" action="{% url 'forum:reply_accept' reply.id post.id %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-secondary" style="font-size: 0.75rem;">Accept</button>
+                </form>
+            {% endif %}
+            {% if not reply.aiGenerated and reply.authorId == request.session.userId %}
+            <a href="{% url 'forum:reply_edit' reply.id %}" class="btn btn-secondary" style="font-size: 0.75rem;">Edit</a>
+            {% endif %}
+            {% if reply.authorId == request.session.userId or post.authorId == request.session.userId %}
+            <form method="post" action="{% url 'forum:reply_delete' reply.id %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-secondary" style="font-size: 0.75rem; color: var(--danger-color);">Delete</button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+
+    <div style="line-height: 1.75; white-space: pre-wrap;">{{ reply.content }}</div>
+
+    <!-- Vote on reply -->
+    <div class="flex items-center gap-2 mt-4" style="border-top: 1px solid var(--border-color); padding-top: 0.75rem;">
+        <form method="post" action="{% url 'forum:vote' reply.id %}" class="flex items-center gap-2">
+            {% csrf_token %}
+            <input type="hidden" name="postId" value="{{ post.id }}">
+            <select name="rating" class="input-field" style="width: auto; padding: 0.3rem 0.55rem; font-size: 0.8rem;">
+                {% for i in "12345678910"|make_list %}
+                    <option value="{{ forloop.counter }}">{{ forloop.counter }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="btn btn-secondary" style="font-size: 0.75rem;">Vote</button>
+        </form>
+        <form method="post" action="{% url 'forum:vote_remove' reply.id %}">
+            {% csrf_token %}
+            <input type="hidden" name="postId" value="{{ post.id }}">
+            <button type="submit" class="btn btn-secondary" style="font-size: 0.75rem;">Remove Vote</button>
+        </form>
+    </div>
+</div>
+{% empty %}
+<div class="card" style="text-align: center; padding: 2rem; color: var(--text-secondary);">
+    <p>No answers yet. Be the first to respond.</p>
+</div>
+{% endfor %}
+
+<!-- Reply form -->
+<div class="card" style="margin-top: 1rem;">
+    <h3 style="font-size: 1rem; margin-bottom: 1rem;">Your Answer</h3>
+    <form method="post" action="{% url 'forum:reply_create' post.id %}">
+        {% csrf_token %}
+        <textarea name="content" rows="6" placeholder="Write your answer..." class="input-field" style="resize: vertical;" required></textarea>
+        <button type="submit" class="btn btn-primary" style="margin-top: 0.75rem;">Post Answer</button>
+    </form>
+</div>
+{% endblock %}

@@ -12,6 +12,7 @@ urlpatterns = [
     path("search/", views.semanticSearch, name="search"),
 
     # Notifications
+    path("notifications/unread/", views.notificationUnreadApi, name="notification_unread_api"),
     path("notifications/", views.notificationList, name="notification_list"),
     path("notifications/mark-all-read/", views.notificationMarkAllRead, name="notification_mark_all_read"),
     path("notifications/<str:notificationId>/read/", views.notificationMarkRead, name="notification_mark_read"),

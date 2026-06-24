@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}{{ topic.name }} — MitraLearn{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-4">
+    <div>
+        <p class="text-secondary" style="font-size: 0.8rem; margin-bottom: 0.25rem;">
+            <a href="{% url 'forum:subcategory_detail' topic.subcategoryId %}">← Subcategoría</a>
+        </p>
+        <h1 style="font-size: 1.75rem;">{{ topic.name }}</h1>
+    </div>
+    <a href="{% url 'forum:post_create' %}" class="btn btn-primary">Nueva pregunta</a>
+</div>
+
+{% for post in posts %}
+<div class="card" style="padding: 1.25rem; margin-bottom: 0.75rem;">
+    <div class="flex items-center justify-between">
+        <div style="flex: 1; min-width: 0;">
+            <a href="{% url 'forum:post_detail' post.id %}" style="font-weight: 600;">{{ post.title }}</a>
+            <p class="text-secondary" style="font-size: 0.8rem; margin-top: 0.35rem;">
+                {{ post.answersCount }} respuesta{{ post.answersCount|pluralize }} · {{ post.status }} · Score {{ post.score|floatformat:1 }}
+            </p>
+        </div>
+        <a href="{% url 'forum:post_detail' post.id %}" class="btn btn-secondary" style="font-size: 0.8rem;">Abrir</a>
+    </div>
+</div>
+{% empty %}
+<div class="card" style="text-align: center; padding: 2rem; color: var(--text-secondary);">
+    <p>No hay publicaciones en este tópico.</p>
+    <a href="{% url 'forum:post_create' %}" class="btn btn-primary" style="margin-top: 1rem;">Publicar la primera</a>
+</div>
+{% endfor %}
+{% endblock %}

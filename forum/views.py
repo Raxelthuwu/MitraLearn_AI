@@ -1,6 +1,6 @@
 from django.shortcuts import render, redirect
 from django.contrib import messages
-from django.http import HttpRequest, HttpResponse
+from django.http import HttpRequest, HttpResponse, JsonResponse
 
 from forum import (
     ForumCategoryService,
@@ -19,7 +19,7 @@ from forum import (
 )
 
 
-# Service singletons
+# Service singletons (The "Pipeline" engines)
 categorySvc    = ForumCategoryService()
 subcategorySvc = ForumSubcategoryService()
 topicSvc       = ForumTopicService()
@@ -35,6 +35,23 @@ suggestionSvc  = AnswerSuggestionService()
 expansionSvc   = QueryExpansionService()
 
 
+def _hydrateSearchResults(similarityResults):
+    """Enriches similarity service results (postId/snippet) with full post data.
+    Returns a list of post dicts compatible with post_list.html / search_results.html.
+    """
+    hydrated = []
+    for item in similarityResults:
+        postId = item.get("postId", "")
+        if not postId:
+            continue
+        post = postSvc.getPostById(postId)
+        if post:
+            post["similarity"] = item.get("similarity", 0.0)
+            hydrated.append(post)
+    return hydrated
+
+
+
 # Get current user id from session
 def getUserId(request: HttpRequest) -> str:
     return request.session.get("userId", "")
@@ -45,19 +62,33 @@ def loginRequired(request: HttpRequest) -> bool:
     return not getUserId(request)
 
 
+# Sentinel author id for AI-generated replies
+AI_AUTHOR_ID = "000000000000000000000000"
+
+
+def canDeleteReply(userId: str, reply: dict, post: dict) -> bool:
+    """Reply author or post author may delete a reply (including AI suggestions)."""
+    if not userId or not reply or not post:
+        return False
+    return reply["authorId"] == userId or post["authorId"] == userId
+
+
+def canEditReply(userId: str, reply: dict) -> bool:
+    """Only the human author may edit; AI replies are not editable."""
+    if not userId or not reply:
+        return False
+    if reply.get("aiGenerated"):
+        return False
+    return reply["authorId"] == userId
+
+
 
 def forumHome(request: HttpRequest) -> HttpResponse:
-    # Shows all categories and unread notification count for the current user
+    # Shows all categories (unreadCount comes from context processor)
     categories = categorySvc.getAllCategories()
-    userId     = getUserId(request)
-
-    unreadCount = 0
-    if userId:
-        unreadCount = len(notifSvc.getUnreadNotifications(userId))
 
     return render(request, "forum/home.html", {
-        "categories":  categories,
-        "unreadCount": unreadCount,
+        "categories": categories,
     })
 
 
@@ -96,6 +127,20 @@ def notificationMarkAllRead(request: HttpRequest) -> HttpResponse:
         notifSvc.markAllAsRead(userId)
 
     return redirect("forum:notification_list")
+
+
+def notificationUnreadApi(request: HttpRequest) -> HttpResponse:
+    # JSON endpoint for live notification badge updates (polled from the browser)
+    if loginRequired(request):
+        return JsonResponse({"error": "unauthorized"}, status=401)
+
+    user_id = getUserId(request)
+    unread  = notifSvc.getUnreadNotifications(user_id)
+
+    return JsonResponse({
+        "unreadCount":   len(unread),
+        "notifications": unread,
+    })
 
 
 
@@ -199,13 +244,13 @@ def postList(request: HttpRequest, categoryId: str) -> HttpResponse:
     page  = int(request.GET.get("page", 1))
 
     if query:
-        # Expand the query before searching
-        expandedQuery = expansionSvc.expandQuery(query)
-        posts         = searchSvc.findSimilarPosts(
-            queryText      = expandedQuery,
+        searchQuery = expansionSvc.normalizeQuery(query)
+        rawResults  = searchSvc.findSimilarPosts(
+            queryText      = searchQuery,
             topK           = 20,
-            scoreThreshold = 0.40,
+            scoreThreshold = searchSvc.DEFAULT_SEARCH_THRESHOLD,
         )
+        posts = _hydrateSearchResults(rawResults)
     else:
         posts = postSvc.getPostsByCategory(categoryId, page=page, pageSize=20)
 
@@ -260,6 +305,13 @@ def postCreate(request: HttpRequest) -> HttpResponse:
         topicId       = request.POST.get("topicId", "").strip() or None
         tags          = [t.strip() for t in request.POST.get("tags", "").split(",") if t.strip()]
         confirmPost   = request.POST.get("confirmPost", "")
+
+        # Validate that optional IDs are actual ObjectIds; ignore invalid text values
+        from bson import ObjectId as BsonObjectId
+        if subcategoryId and not BsonObjectId.is_valid(subcategoryId):
+            subcategoryId = None
+        if topicId and not BsonObjectId.is_valid(topicId):
+            topicId = None
 
         if not title or not content or not categoryId:
             messages.error(request, "Title, content and category are required.")
@@ -434,7 +486,9 @@ def replyEdit(request: HttpRequest, replyId: str) -> HttpResponse:
     reply  = replySvc.getReplyById(replyId)
     userId = getUserId(request)
 
-    if not reply or reply["authorId"] != userId:
+    post = postSvc.getPostById(reply["postId"]) if reply else None
+    if not reply or not canEditReply(userId, reply):
+        messages.error(request, "You cannot edit this reply.")
         return redirect("forum:post_detail", postId=reply["postId"] if reply else "")
 
     if request.method == "POST":
@@ -460,15 +514,23 @@ def replyDelete(request: HttpRequest, replyId: str) -> HttpResponse:
 
     reply  = replySvc.getReplyById(replyId)
     userId = getUserId(request)
+    postId = reply["postId"] if reply else ""
+    post   = postSvc.getPostById(postId) if postId else None
 
-    if not reply or reply["authorId"] != userId:
+    if not reply or not post or not canDeleteReply(userId, reply, post):
+        messages.error(request, "You do not have permission to delete this reply.")
+        if postId:
+            return redirect("forum:post_detail", postId=postId)
         return redirect("forum:category_list")
-
-    postId = reply["postId"]
 
     if request.method == "POST":
         replySvc.deleteReply(replyId)
         indexSvc.removeIndexedReply(replyId)
+
+        remaining = replySvc.getRepliesByPost(postId)
+        if not any(r.get("aiGenerated") for r in remaining):
+            postSvc.clearAiSuggested(postId)
+
         messages.success(request, "Reply deleted.")
 
     return redirect("forum:post_detail", postId=postId)
@@ -487,17 +549,26 @@ def replyAccept(request: HttpRequest, replyId: str, postId: str) -> HttpResponse
         return redirect("forum:post_detail", postId=postId)
 
     if request.method == "POST":
-        replySvc.acceptReply(replyId, postId)
+        # --- PIPELINE: ACCEPT SOLUTION ---
+        try:
+            # 1. Accept Reply
+            replySvc.acceptReply(replyId, postId)
 
-        reply = replySvc.getReplyById(replyId)
-        if reply and reply["authorId"] != userId:
-            notifSvc.createNotification(
-                userId           = reply["authorId"],
-                notificationType = "respuesta aceptada",
-                referenceId      = replyId,
-            )
+            # 2. Automate Post Status (Set to Resolved)
+            postSvc.updatePostStatus(postId, "resolved")
 
-        messages.success(request, "Reply accepted as solution.")
+            # 3. Notification Pipeline (Automatic)
+            reply = replySvc.getReplyById(replyId)
+            if reply and reply["authorId"] != userId:
+                notifSvc.createNotification(
+                    userId           = reply["authorId"],
+                    notificationType = "respuesta aceptada",
+                    referenceId      = postId,
+                )
+
+            messages.success(request, "Reply accepted. The post has been marked as RESOLVED.")
+        except Exception as e:
+            messages.error(request, f"Could not accept the reply: {e}")
 
     return redirect("forum:post_detail", postId=postId)
 
@@ -513,16 +584,17 @@ def replyAiSuggest(request: HttpRequest, postId: str) -> HttpResponse:
         return redirect("forum:category_list")
 
     if request.method == "POST":
-        result = suggestionSvc.generateAiAnswer(
-            postId  = postId,
-            title   = post["title"],
-            content = post["content"],
-        )
-
-        # Flag the post as having received an AI suggestion
-        postSvc.flagAsAiSuggested(postId)
-
-        messages.success(request, "AI suggestion generated and added as a reply.")
+        try:
+            suggestionSvc.generateAiAnswer(
+                postId  = postId,
+                title   = post["title"],
+                content = post["content"],
+                tags    = post.get("tags", []),
+            )
+            postSvc.flagAsAiSuggested(postId)
+            messages.success(request, "AI suggestion generated and added as a reply.")
+        except Exception as e:
+            messages.error(request, f"Could not generate AI suggestion: {e}")
 
     return redirect("forum:post_detail", postId=postId)
 
@@ -625,12 +697,13 @@ def semanticSearch(request: HttpRequest) -> HttpResponse:
     results = []
 
     if query:
-        expandedQuery = expansionSvc.expandQuery(query)
-        results       = searchSvc.findSimilarPosts(
-            queryText      = expandedQuery,
+        searchQuery = expansionSvc.normalizeQuery(query)
+        rawResults  = searchSvc.findSimilarPosts(
+            queryText      = searchQuery,
             topK           = 20,
-            scoreThreshold = 0.40,
+            scoreThreshold = searchSvc.DEFAULT_SEARCH_THRESHOLD,
         )
+        results = _hydrateSearchResults(rawResults)
 
     return render(request, "forum/search_results.html", {
         "query":   query,

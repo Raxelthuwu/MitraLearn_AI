@@ -64,6 +64,21 @@ class ForumEmbedding:
 
 
     @staticmethod
+    def search_answers(query_embedding, n_results=5):
+        """Semantic search limited to indexed replies (type = answer)."""
+        print("[DEBUG] ForumEmbedding.search_answers -> n_results:", n_results)
+
+        results = forum_embeddings.query(
+            query_embeddings=[query_embedding],
+            n_results=n_results,
+            where={"type": "answer"},
+            include=["documents", "metadatas", "distances"],
+        )
+
+        print("[DEBUG] ForumEmbedding.search_answers -> results:", results)
+        return results
+
+    @staticmethod
     def search_duplicates(query_embedding, n_results=5):
         """
         Detects similar questions before posting.

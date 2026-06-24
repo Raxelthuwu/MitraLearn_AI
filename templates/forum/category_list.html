@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Categorías — MitraLearn{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-4">
+    <h1 style="font-size: 1.75rem;">Categorías</h1>
+    <a href="{% url 'forum:home' %}" class="btn btn-secondary">← Inicio</a>
+</div>
+
+{% if request.session.userId %}
+<div class="card" style="margin-bottom: 1.5rem;">
+    <h2 style="font-size: 1rem; margin-bottom: 1rem;">Crear categoría</h2>
+    <form method="post">
+        {% csrf_token %}
+        <div style="display: grid; gap: 0.75rem;">
+            <input type="text" name="name" class="input-field" placeholder="Nombre de la categoría" required>
+            <textarea name="description" rows="2" class="input-field" style="resize: vertical;" placeholder="Descripción (opcional)"></textarea>
+            <button type="submit" class="btn btn-primary" style="width: fit-content;">Crear</button>
+        </div>
+    </form>
+</div>
+{% endif %}
+
+{% for cat in categories %}
+<div class="card" style="padding: 1.25rem; margin-bottom: 0.75rem;">
+    <div class="flex items-center justify-between">
+        <div>
+            <a href="{% url 'forum:category_detail' cat.id %}" style="font-weight: 600; font-size: 1.05rem;">{{ cat.name }}</a>
+            {% if cat.description %}
+            <p class="text-secondary" style="font-size: 0.875rem; margin-top: 0.35rem;">{{ cat.description }}</p>
+            {% endif %}
+        </div>
+        <div class="flex gap-2">
+            <a href="{% url 'forum:category_detail' cat.id %}" class="btn btn-secondary" style="font-size: 0.8rem;">Subcategorías</a>
+            <a href="{% url 'forum:post_list' cat.id %}" class="btn btn-primary" style="font-size: 0.8rem;">Ver posts</a>
+        </div>
+    </div>
+</div>
+{% empty %}
+<div class="card" style="text-align: center; padding: 2rem; color: var(--text-secondary);">
+    <p>No hay categorías registradas.</p>
+</div>
+{% endfor %}
+{% endblock %}

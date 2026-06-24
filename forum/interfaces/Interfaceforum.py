@@ -269,7 +269,7 @@ class IForumNotificationService(ABC):
         notificationType: str,
         referenceId: str,
     ) -> Dict[str, Any]:
-        # Dispatch a notification of type: nueva respuesta | voto | mención
+        # Dispatch a notification of type: nueva respuesta | voto | mención | respuesta aceptada
         pass
 
     @abstractmethod

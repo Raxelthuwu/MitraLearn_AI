@@ -1,5 +1,6 @@
 import re
 from collections import Counter
+from string import Template
 from typing import Any, Dict, List, Optional
 
 from forum.interfaces import (
@@ -188,6 +189,11 @@ class SemanticIndexService(ISemanticIndexService):
 # SemanticSearchService
 class SemanticSearchService(ISemanticSearchService):
 
+    # Minimum cosine similarity for user-facing search results
+    DEFAULT_SEARCH_THRESHOLD: float = 0.72
+    # Drop results far below the best match (reduces noise in small corpora)
+    SEARCH_RELATIVE_GAP: float = 0.08
+
     def findSimilarPosts(
         self,
         queryText: str,
@@ -220,7 +226,19 @@ class SemanticSearchService(ISemanticSearchService):
                 "status":     meta.get("status", "open"),
             })
 
-        print(f"[DEBUG] SemanticSearchService.findSimilarPosts -> {len(output)} results above threshold")
+        if output:
+            output.sort(key=lambda r: r["similarity"], reverse=True)
+            top_similarity = output[0]["similarity"]
+            relative_floor = top_similarity - self.SEARCH_RELATIVE_GAP
+            effective_min  = max(scoreThreshold, relative_floor)
+            output = [r for r in output if r["similarity"] >= effective_min]
+            print(
+                f"[DEBUG] SemanticSearchService.findSimilarPosts -> "
+                f"{len(output)} results after relative filter (top={top_similarity}, min={effective_min})"
+            )
+        else:
+            print(f"[DEBUG] SemanticSearchService.findSimilarPosts -> 0 results above threshold")
+
         return output
 
     def findSimilarPostById(
@@ -254,14 +272,12 @@ class SemanticSearchService(ISemanticSearchService):
 
         print(f"[DEBUG] SemanticSearchService.findRelevantReplies -> topK: {topK}")
 
-        raw     = ForumEmbedding.search(embedding, n_results=topK * 2)
+        raw     = ForumEmbedding.search_answers(embedding, n_results=topK * 2)
         results = ForumSemanticHelpers.parseChromaResults(raw)
 
         output = []
         for item in results:
             meta = item["metadata"]
-            if meta.get("type") != "answer":
-                continue
 
             similarity = ForumSemanticHelpers.distanceToSimilarity(item["distance"])
 
@@ -328,9 +344,9 @@ class SemanticSearchService(ISemanticSearchService):
 class DuplicateDetectionService(IDuplicateDetectionService):
 
     # Threshold for soft duplicate warnings shown to the user
-    SOFT_THRESHOLD: float = 0.75
+    SOFT_THRESHOLD: float = 0.88
     # Threshold for hard blocks before submission
-    HARD_THRESHOLD: float = 0.92
+    HARD_THRESHOLD: float = 0.95
 
     def detectDuplicates(
         self,
@@ -419,20 +435,31 @@ class DuplicateDetectionService(IDuplicateDetectionService):
 # AnswerSuggestionService
 class AnswerSuggestionService(IAnswerSuggestionService):
 
-    # RAG prompt; reply always ends with an explicit invitation to debate
-    _ANSWER_PROMPT = """Eres un asistente académico del programa de Ingeniería de Sistemas de la Universidad de Pamplona.
+    # Minimum similarity for using another forum reply as RAG context
+    AI_CONTEXT_THRESHOLD: float = 0.72
+    AI_CONTEXT_RELATIVE_GAP: float = 0.10
+
+    # Template (not str.format) so LaTeX/braces in context do not break the prompt
+    _ANSWER_PROMPT = Template("""Eres un asistente académico del programa de Ingeniería de Sistemas de la Universidad de Pamplona.
 Tu rol es SUGERIR un punto de partida para la discusión en el foro, NO dar una respuesta definitiva.
-Redacta una respuesta inicial en español basada ÚNICAMENTE en el siguiente contexto recuperado.
+Redacta una respuesta inicial en español sobre el tema de la pregunta del estudiante.
+
+REGLAS IMPORTANTES:
+- Responde SOLO sobre el tema del título y contenido de la pregunta del foro.
+- Si el contexto recuperado habla de otro tema (ej. matemáticas/derivadas cuando la pregunta es de programación/POO), IGNÓRALO por completo.
+- No mezcles conceptos de hilos no relacionados del foro.
+- Si el contexto no aplica, explica el tema de la pregunta con conocimiento general de Ingeniería de Sistemas.
 Al final, invita explícitamente a los demás estudiantes a complementar o debatir la respuesta.
 
 Pregunta del foro:
-Título: {title}
-Contenido: {content}
+Título: $title
+Contenido: $content
+Etiquetas: $tags
 
-Contexto recuperado:
-{context}
+Contexto recuperado (puede estar vacío o ser parcial):
+$context
 
-Respuesta sugerida (máximo 300 palabras, en español, termina con una invitación al debate):"""
+Respuesta sugerida (máximo 300 palabras, en español, termina con una invitación al debate):""")
 
     def suggestAnswersForPost(self, postId: str, topK: int) -> List[Dict[str, Any]]:
         # Returns the topK most similar existing replies for a given post
@@ -453,25 +480,88 @@ Respuesta sugerida (máximo 300 palabras, en español, termina con una invitaci�
         print(f"[DEBUG] AnswerSuggestionService.suggestAnswersForPost -> {len(candidates)} candidates")
         return candidates
 
-    def generateAiAnswer(self, postId: str, title: str, content: str) -> Dict[str, Any]:
+    @staticmethod
+    def _normalizeTags(tags: Optional[List[str]]) -> List[str]:
+        if not tags:
+            return []
+        flat = []
+        for tag in tags:
+            for part in str(tag).replace(",", "\n").splitlines():
+                cleaned = part.strip().lstrip("- ").strip()
+                if cleaned:
+                    flat.append(cleaned)
+        return flat
+
+    def _buildAnswerPrompt(self, title: str, content: str, tags: List[str], context: str) -> str:
+        tags_label = ", ".join(tags) if tags else "(sin etiquetas)"
+        return self._ANSWER_PROMPT.safe_substitute(
+            title=title,
+            content=content,
+            tags=tags_label,
+            context=context,
+        )
+
+    def _retrieveAiContext(self, postId: str, title: str, content: str, tags: List[str]) -> str:
+        """Builds RAG context from forum replies and, if needed, academic books."""
+        query_text = ForumSemanticHelpers.buildPostText(title, content, tags)
+        embedding  = AIManager.get_embedding_service().embed(query_text)
+
+        raw       = ForumEmbedding.search_answers(embedding, n_results=10)
+        fragments = ForumSemanticHelpers.parseChromaResults(raw)
+
+        scored = []
+        current_post_id = str(postId)
+        for item in fragments:
+            meta = item["metadata"]
+            if str(meta.get("postId", "")) == current_post_id:
+                continue
+            similarity = ForumSemanticHelpers.distanceToSimilarity(item["distance"])
+            scored.append({
+                "document":   item["document"],
+                "similarity": similarity,
+            })
+
+        forum_parts = []
+        if scored:
+            scored.sort(key=lambda x: x["similarity"], reverse=True)
+            top_sim   = scored[0]["similarity"]
+            min_sim   = max(self.AI_CONTEXT_THRESHOLD, top_sim - self.AI_CONTEXT_RELATIVE_GAP)
+            forum_parts = [
+                item["document"]
+                for item in scored
+                if item["similarity"] >= min_sim
+            ][:3]
+            print(
+                f"[DEBUG] AnswerSuggestionService._retrieveAiContext -> "
+                f"forum fragments: {len(forum_parts)} (min_sim={min_sim:.2f})"
+            )
+
+        if forum_parts:
+            return "Respuestas relacionadas del foro:\n" + "\n\n---\n\n".join(forum_parts)
+
+        from assistant.services.rag_service import RAGService
+        book_context, _ = RAGService().retrieve_context(query_text, k=3)
+        if book_context.strip():
+            print("[DEBUG] AnswerSuggestionService._retrieveAiContext -> using academic books fallback")
+            return "Material académico indexado:\n" + book_context
+
+        return "Sin contexto externo relevante. Responde solo con el tema de la pregunta del estudiante."
+
+    def generateAiAnswer(
+        self,
+        postId: str,
+        title: str,
+        content: str,
+        tags: Optional[List[str]] = None,
+    ) -> Dict[str, Any]:
         # RAG pipeline: embed -> retrieve -> prompt -> generate -> persist -> index
         print(f"[DEBUG] AnswerSuggestionService.generateAiAnswer -> postId: {postId}")
 
-        embeddingSvc = AIManager.get_embedding_service()
-        llmSvc       = AIManager.get_llm_service()
+        llmSvc = AIManager.get_llm_service()
+        tags   = self._normalizeTags(tags)
 
-        # Embed the question to retrieve relevant answer fragments
-        queryEmbedding = embeddingSvc.embed(ForumSemanticHelpers.buildPostText(title, content, []))
-
-        # Retrieve top answer fragments from the vector store
-        raw       = ForumEmbedding.search(queryEmbedding, n_results=5)
-        fragments = ForumSemanticHelpers.parseChromaResults(raw)
-        context   = "\n\n---\n\n".join(
-            f["document"] for f in fragments if f["metadata"].get("type") == "answer"
-        ) or "No se encontraron respuestas previas relacionadas."
-
-        # Build and send the RAG prompt
-        prompt        = self._ANSWER_PROMPT.format(title=title, content=content, context=context)
+        context       = self._retrieveAiContext(postId, title, content, tags)
+        prompt        = self._buildAnswerPrompt(title, content, tags, context)
         generatedText = llmSvc.generate(prompt)
 
         print(f"[DEBUG] AnswerSuggestionService.generateAiAnswer -> LLM response received")

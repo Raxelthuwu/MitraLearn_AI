@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}{{ user.fullName }} — MitraLearn{% endblock %}
+
+{% block content %}
+<div class="section-actions">
+    <div>
+        <h1 class="page-title">{{ user.fullName }}</h1>
+        <p class="page-subtitle">{{ user.email }}</p>
+    </div>
+    <div class="flex gap-2">
+        <a href="{% url 'login:user_edit' user.id %}" class="btn btn-secondary">Editar</a>
+        <a href="{% url 'login:user_delete' user.id %}" class="btn btn-danger">Eliminar</a>
+        <a href="{% url 'login:user_list' %}" class="btn btn-ghost">← Volver</a>
+    </div>
+</div>
+
+<div class="card card-body" style="max-width: 640px;">
+    <div class="grid" style="gap: 1.25rem;">
+        <div>
+            <p class="form-label" style="margin-bottom: 0.25rem;">Rol</p>
+            <span class="badge badge-accent">{{ user.role }}</span>
+        </div>
+        <div>
+            <p class="form-label" style="margin-bottom: 0.25rem;">Carrera</p>
+            <p>{{ user.career }}</p>
+        </div>
+        <div>
+            <p class="form-label" style="margin-bottom: 0.25rem;">Teléfono</p>
+            <p>{{ user.phone|default:"—" }}</p>
+        </div>
+        <div>
+            <p class="form-label" style="margin-bottom: 0.25rem;">Reputación</p>
+            <p>{{ user.reputation }}</p>
+        </div>
+        <div>
+            <p class="form-label" style="margin-bottom: 0.25rem;">Registrado</p>
+            <p class="text-secondary text-sm">{{ user.createdAt }}</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

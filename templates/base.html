@@ -1,0 +1,97 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}MitraLearn{% endblock %}</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="{% static 'css/global.css' %}">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+
+    <header class="site-header">
+        <div class="header-inner">
+
+            <a href="{% url 'forum:home' %}" class="site-logo">
+                <span class="logo-icon">🎓</span>MitraLearn
+            </a>
+
+            <nav class="site-nav">
+                <a href="{% url 'forum:home' %}" class="nav-link">Inicio</a>
+                <a href="{% url 'forum:category_list' %}" class="nav-link">Categorías</a>
+                <a href="{% url 'forum:search' %}" class="nav-link">Buscar</a>
+                <a href="{% url 'forum:post_create' %}" class="nav-link">Nueva pregunta</a>
+                <a href="{% url 'assistant:config' %}" class="nav-link chat-link"> Chat de aprendizaje</a>
+            </nav>
+
+            <div class="header-actions">
+                {% if request.session.userId %}
+                    {# Usuario logueado #}
+                    <a href="{% url 'forum:notification_list' %}"
+                       class="notif-btn"
+                       id="notif-btn"
+                       title="Notificaciones"
+                       data-poll-url="{% url 'forum:notification_unread_api' %}">
+                        🔔
+                        <span class="notif-badge" id="notif-badge"{% if not unreadCount %} hidden{% endif %}>{{ unreadCount|default:0 }}</span>
+                    </a>
+
+                    <div class="user-menu">
+                        <span class="user-name">{{ request.session.fullName }}</span>
+                        <div class="user-dropdown">
+                            <a href="{% url 'login:profile' %}" class="dropdown-item">Mi perfil</a>
+                            {% if request.session.role == "admin" %}
+                                <a href="{% url 'login:user_list' %}" class="dropdown-item">Gestionar usuarios</a>
+                            {% endif %}
+                            <div class="dropdown-divider"></div>
+                            <form method="post" action="{% url 'login:logout' %}" style="margin:0">
+                                {% csrf_token %}
+                                <button type="submit" class="dropdown-item dropdown-item--danger">Cerrar sesión</button>
+                            </form>
+                        </div>
+                    </div>
+                {% else %}
+                    {# Usuario anónimo #}
+                    <a href="{% url 'login:login' %}" class="btn btn-secondary btn--sm">Ingresar</a>
+                    <a href="{% url 'login:register' %}" class="btn btn-primary btn--sm">Registrarse</a>
+                {% endif %}
+            </div>
+
+        </div>
+    </header>
+
+    <main class="site-main">
+
+        {% if messages %}
+            <div class="messages-container">
+                {% for message in messages %}
+                    <div class="alert alert--{{ message.tags }}">
+                        <span class="alert-icon">
+                            {% if message.tags == 'error' %}✕{% else %}✓{% endif %}
+                        </span>
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        {% block content %}{% endblock %}
+
+    </main>
+
+    <footer class="site-footer">
+        <p>© 2026 MitraLearn AI. Todos los derechos reservados.</p>
+    </footer>
+
+    {% if request.session.userId %}
+    <script src="{% static 'js/notifications.js' %}"></script>
+    {% endif %}
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

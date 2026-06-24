@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}New Post — MitraLearn{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-4">
+    <h1 style="font-size: 1.75rem;">New Post</h1>
+    <a href="{% url 'forum:home' %}" class="btn btn-secondary">Cancel</a>
+</div>
+
+<!-- Duplicate warning -->
+{% if duplicates %}
+<div class="card" style="border-left: 3px solid #F59E0B; background: #FFFBEB; margin-bottom: 1rem;">
+    <h3 style="color: #92400E; margin-bottom: 0.5rem;">⚠ Similar posts found</h3>
+    <p style="font-size: 0.875rem; color: #92400E; margin-bottom: 1rem;">
+        Your question may already be answered. Review before posting.
+    </p>
+    {% for dup in duplicates %}
+    <div style="padding: 0.75rem; background: #fff; border: 1px solid #FCD34D; border-radius: 6px; margin-bottom: 0.5rem;">
+        <a href="{% url 'forum:post_detail' dup.postId %}" style="font-weight: 600; font-size: 0.9rem;">{{ dup.title }}</a>
+        <p class="text-secondary" style="font-size: 0.8rem; margin-top: 0.25rem;">Similarity: {{ dup.score|floatformat:2 }}</p>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<form method="post" class="card">
+    {% csrf_token %}
+
+    <!-- Preserve form data when showing duplicate warning -->
+    {% if duplicates %}
+        <input type="hidden" name="confirmPost" value="true">
+    {% endif %}
+
+    <div style="display: grid; gap: 1rem;">
+        <div>
+            <label style="display: block; font-size: 0.875rem; font-weight: 500; margin-bottom: 0.4rem;">Title *</label>
+            <input type="text" name="title" value="{{ formData.title }}" class="input-field" placeholder="Clear, specific question title" required>
+        </div>
+
+        <div>
+            <label style="display: block; font-size: 0.875rem; font-weight: 500; margin-bottom: 0.4rem;">Content *</label>
+            <textarea name="content" rows="8" class="input-field" style="resize: vertical;" placeholder="Describe your question in detail..." required>{{ formData.content }}</textarea>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem;">
+            <div>
+                <label style="display: block; font-size: 0.875rem; font-weight: 500; margin-bottom: 0.4rem;">Category *</label>
+                <select name="categoryId" class="input-field" required>
+                    <option value="">Select category</option>
+                    {% for cat in categories %}
+                        <option value="{{ cat.id }}" {% if formData.categoryId == cat.id %}selected{% endif %}>{{ cat.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label style="display: block; font-size: 0.875rem; font-weight: 500; margin-bottom: 0.4rem;">Subcategory <span style="color:var(--text-secondary); font-weight:400;">(opcional)</span></label>
+                <input type="text" name="subcategoryId" value="{{ formData.subcategoryId }}" class="input-field" placeholder="Dejar vacío (o pegar ID de subcategoría)">
+                <p class="text-secondary" style="font-size: 0.72rem; margin-top: 0.2rem;">Solo si tienes el ID exacto de una subcategoría.</p>
+            </div>
+            <div>
+                <label style="display: block; font-size: 0.875rem; font-weight: 500; margin-bottom: 0.4rem;">Topic <span style="color:var(--text-secondary); font-weight:400;">(opcional)</span></label>
+                <input type="text" name="topicId" value="{{ formData.topicId }}" class="input-field" placeholder="Dejar vacío (o pegar ID de tópico)">
+                <p class="text-secondary" style="font-size: 0.72rem; margin-top: 0.2rem;">Solo si tienes el ID exacto de un tópico.</p>
+            </div>
+        </div>
+
+        <div>
+            <label style="display: block; font-size: 0.875rem; font-weight: 500; margin-bottom: 0.4rem;">Tags</label>
+            <input type="text" name="tags" value="{{ formData.tags }}" class="input-field" placeholder="tag1, tag2, tag3 — leave empty for AI auto-tagging">
+            <p class="text-secondary" style="font-size: 0.75rem; margin-top: 0.35rem;">Leave blank to auto-generate tags with AI.</p>
+        </div>
+
+        <div class="flex gap-2">
+            {% if duplicates %}
+                <button type="submit" class="btn btn-primary">Post Anyway</button>
+                <a href="{% url 'forum:post_create' %}" class="btn btn-secondary">Go Back</a>
+            {% else %}
+                <button type="submit" class="btn btn-primary">Publish Post</button>
+            {% endif %}
+        </div>
+    </div>
+</form>
+{% endblock %}

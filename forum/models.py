@@ -1,4 +1,5 @@
 from core.db import (
+    db,
     users,
     forumCategories,
     forumSubcategories,
@@ -232,8 +233,6 @@ class ForumPost:
             "title": title,
             "content": content,
             "categoryId": ObjectId(categoryId),
-            "subcategoryId": ObjectId(subcategoryId) if subcategoryId else None,
-            "topicId": ObjectId(topicId) if topicId else None,
             "tags": tags or [],
             "answersCount": int(0),
             "score": float(0.0),
@@ -243,6 +242,13 @@ class ForumPost:
             "createdAt": datetime.datetime.utcnow(),
             "updatedAt": datetime.datetime.utcnow(),
         }
+
+        # Only include optional ObjectId fields if they have a real value
+        # (MongoDB JSON schema requires objectId type — null is not valid)
+        if subcategoryId:
+            doc["subcategoryId"] = ObjectId(subcategoryId)
+        if topicId:
+            doc["topicId"] = ObjectId(topicId)
 
         result = forumPosts.insert_one(doc)
 
@@ -507,8 +513,62 @@ class ForumNotification:
 
     collection = forumNotifications
 
+    TYPES = (
+        "nueva respuesta",
+        "voto",
+        "mención",
+        "respuesta aceptada",
+    )
+
+    _schema_synced = False
+
+    @classmethod
+    def ensure_schema(cls):
+        if cls._schema_synced:
+            return
+
+        db.command({
+            "collMod": "forumNotifications",
+            "validator": {
+                "$jsonSchema": {
+                    "bsonType": "object",
+                    "required": ["userId", "type", "referenceId", "read", "createdAt"],
+                    "properties": {
+                        "userId": {
+                            "bsonType": "objectId",
+                            "description": "Usuario receptor",
+                        },
+                        "type": {
+                            "bsonType": "string",
+                            "enum": list(cls.TYPES),
+                            "description": "Tipo de notificación",
+                        },
+                        "referenceId": {
+                            "bsonType": "objectId",
+                            "description": "Post o reply relacionado",
+                        },
+                        "read": {
+                            "bsonType": "bool",
+                            "description": "Leída o no",
+                        },
+                        "createdAt": {
+                            "bsonType": "date",
+                            "description": "Fecha",
+                        },
+                    },
+                }
+            },
+        })
+        cls._schema_synced = True
+        print("[DEBUG] ForumNotification.ensure_schema -> validator updated")
+
     @staticmethod
     def create(userId, type, referenceId):
+        ForumNotification.ensure_schema()
+
+        if type not in ForumNotification.TYPES:
+            raise ValueError(f"Invalid notification type: {type}")
+
         doc = {
             "userId": ObjectId(userId),
             "type": type,
@@ -537,6 +597,15 @@ class ForumNotification:
         print("[DEBUG] Result count:", len(result))
 
         return result
+
+    @staticmethod
+    def count_unread(userId):
+        count = forumNotifications.count_documents({
+            "userId": ObjectId(userId),
+            "read": False,
+        })
+        print("[DEBUG] ForumNotification.count_unread -> userId:", userId, "count:", count)
+        return count
 
     @staticmethod
     def mark_as_read(notificationId):

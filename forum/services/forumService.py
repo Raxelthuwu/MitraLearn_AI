@@ -291,6 +291,16 @@ class ForumPostService(IForumPostService):
         obj = ForumPost.get_by_id(postId)
         return Serializer.post(obj) if obj else None
 
+    def clearAiSuggested(self, postId: str) -> Optional[Dict[str, Any]]:
+        from bson import ObjectId
+        import datetime
+        ForumPost.collection.update_one(
+            {"_id": ObjectId(postId)},
+            {"$set": {"aiSuggested": False, "updatedAt": datetime.datetime.utcnow()}}
+        )
+        obj = ForumPost.get_by_id(postId)
+        return Serializer.post(obj) if obj else None
+
     def incrementAnswersCount(self, postId: str) -> None:
         ForumPost.increment_answers(postId)
 
@@ -515,6 +525,9 @@ class ForumNotificationService(IForumNotificationService):
 
     def getUnreadNotifications(self, userId: str) -> List[Dict[str, Any]]:
         return [Serializer.notification(obj) for obj in ForumNotification.get_unread(userId)]
+
+    def getUnreadCount(self, userId: str) -> int:
+        return ForumNotification.count_unread(userId)
 
     def markAsRead(self, notificationId: str) -> Optional[Dict[str, Any]]:
         from bson import ObjectId

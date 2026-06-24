@@ -3,6 +3,10 @@
 import os
 import sys
 
+# Reduce memory pressure from BLAS when loading ML models on limited RAM.
+os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
+os.environ.setdefault("OMP_NUM_THREADS", "1")
+
 
 def main():
     """Run administrative tasks."""
